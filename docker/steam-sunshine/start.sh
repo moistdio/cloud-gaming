@@ -37,7 +37,7 @@ sudo -u steam openbox-session &
 sleep 2
 
 # Start VNC server with correct port
-sudo -u steam x11vnc -display :0 -nopw -forever -shared -noxdamage -rfbport 7300 -ncache 10 -ncache_cr &
+sudo -u steam x11vnc -display :0 -nopw -forever -shared -noxdamage -rfbport 5900 -ncache 10 -ncache_cr &
 
 # Start PulseAudio as steam user
 sudo -u steam pulseaudio --start --exit-idle-time=-1 --disallow-module-loading=0
