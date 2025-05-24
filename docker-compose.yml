@@ -63,7 +63,7 @@ services:
       - "7509:47998/udp"
       - "7510:47999/udp"
       - "7511:48000/udp"
-      - "7300:5900"  # VNC port
+      - "7300:7300"  # VNC port
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/user/1000/pulse:/run/user/1000/pulse
