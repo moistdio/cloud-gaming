@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
     openbox \
+    python3-xdg \
     pulseaudio \
     mesa-utils \
     vulkan-tools \
@@ -51,7 +52,12 @@ COPY xorg.conf /etc/X11/xorg.conf.d/10-virtual.conf
 
 # Set up Sunshine configuration
 COPY sunshine.conf /home/steam/.config/sunshine/sunshine.conf
-RUN chown -R steam:steam /home/steam/.config
+RUN mkdir -p /home/steam/.config && \
+    chown -R steam:steam /home/steam/.config
+
+# Create Openbox configuration directory
+RUN mkdir -p /home/steam/.config/openbox && \
+    chown -R steam:steam /home/steam/.config/openbox
 
 # Set working directory
 WORKDIR /home/steam

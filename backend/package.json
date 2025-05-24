@@ -2,13 +2,14 @@
   "name": "cloud-gaming-backend",
   "version": "1.0.0",
   "description": "Backend service for cloud gaming platform",
+  "type": "module",
   "main": "src/index.ts",
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "dev": "nodemon src/index.ts",
+    "start": "ts-node --esm src/index.ts",
+    "dev": "nodemon --esm src/index.ts",
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
