@@ -130,7 +130,7 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-p', '47989-48000:47989-48000/tcp',
             '-p', '47989-48000:47989-48000/udp',
             '-p', '5900:5900',
-            'steam-sunshine-image'
+            'cloud-gaming-steam'
           ]);
 
           let startErrorOutput = '';

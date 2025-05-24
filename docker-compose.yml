@@ -35,6 +35,7 @@ services:
   steam:
     build:
       context: ./docker/steam-sunshine
+    image: cloud-gaming-steam
     privileged: true
     ports:
       - "7000-7099:7000-7099"
