@@ -14,8 +14,20 @@ const port = process.env.PORT || 7200;
 // Global error handler for unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Promise Rejection:', reason);
-  // Don't exit the process, just log the error
+  // Log the full error details
+  if (reason instanceof Error) {
+    console.error('Error details:', {
+      name: reason.name,
+      message: reason.message,
+      stack: reason.stack
+    });
+  }
 });
+
+// Async handler wrapper to catch promise rejections
+const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
 
 // Middleware
 app.use(cors());
@@ -45,21 +57,38 @@ app.use('/api/auth', authRoutes);
 app.use('/api/instances', instanceRoutes);
 
 // Health check endpoint
-app.get('/api/health', async (req: Request, res: Response) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', database: 'connected' });
-  } catch (error) {
-    res.status(500).json({ status: 'error', database: 'disconnected', error: String(error) });
-  }
-});
+app.get('/api/health', asyncHandler(async (req: Request, res: Response) => {
+  await prisma.$queryRaw`SELECT 1`;
+  res.json({ status: 'ok', database: 'connected' });
+}));
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
+  console.error('Error:', {
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  });
+  
+  // Handle specific types of errors
+  if (err.name === 'PrismaClientKnownRequestError') {
+    return res.status(400).json({ 
+      error: 'Database error',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred with the database'
+    });
+  }
+  
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({ 
+      error: 'Authentication error',
+      message: 'Invalid authentication token'
+    });
+  }
+  
+  // Default error response
   res.status(500).json({ 
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
   });
 });
 
