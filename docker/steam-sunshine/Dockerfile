@@ -24,24 +24,30 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libboost-all-dev \
     xorg-dev \
+    dbus \
+    dbus-x11 \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Steam user
+# Add Steam user to required groups
 RUN useradd -m steam && \
+    usermod -aG sudo,input,video,render steam && \
     echo "steam ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Install Steam
+# Install Steam with correct path
 RUN add-apt-repository multiverse && \
     dpkg --add-architecture i386 && \
     apt-get update && \
     echo steam steam/question select "I AGREE" | debconf-set-selections && \
     echo steam steam/license note '' | debconf-set-selections && \
     apt-get install -y \
-    steam \
+    steam-installer \
     libgl1-mesa-dri:i386 \
     libgl1-mesa-glx:i386 \
     libc6:i386 \
     && rm -rf /var/lib/apt/lists/*
+
+# Fix Steam path
+RUN ln -s /usr/games/steam /usr/bin/steam
 
 # Install Sunshine
 RUN wget https://github.com/LizardByte/Sunshine/releases/download/v0.20.0/sunshine-ubuntu-22.04-amd64.deb && \
