@@ -129,7 +129,7 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
             '-p', '47989-48000:47989-48000/tcp',
             '-p', '47989-48000:47989-48000/udp',
-            '-p', '5900:5900',
+            '-p', '7301-7399:5900',
             'cloud-gaming-steam'
           ]);
 
