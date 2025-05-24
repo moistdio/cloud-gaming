@@ -29,97 +29,149 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
   }
   const userId = req.user.id;
   
+  let instance;
   try {
     // Check if instance exists
-    let instance = await prisma.instance.findUnique({
+    instance = await prisma.instance.findUnique({
       where: { userId }
     });
 
-    if (!instance) {
-      // Create new instance
-      instance = await prisma.instance.create({
-        data: {
-          userId,
-          status: 'starting',
-          containerId: null,
-        }
-      });
+    if (instance?.status === 'running') {
+      return res.status(400).json({ error: 'Instance is already running' });
+    }
 
-      // Start Docker container
-      const containerName = `steam-${userId}`;
-      const startContainer = spawn('docker', [
-        'run',
-        '-d',
-        '--name', containerName,
-        '--gpus', 'all',
-        '--privileged',
-        '-e', 'DISPLAY=:0',
-        '-e', 'NVIDIA_VISIBLE_DEVICES=all',
-        '-e', 'NVIDIA_DRIVER_CAPABILITIES=all',
-        '-e', 'PULSE_SERVER=unix:/run/user/1000/pulse/native',
-        '--group-add', 'input',
-        '--device=/dev/input:/dev/input',
-        '--device=/dev/nvidia0:/dev/nvidia0',
-        '--device=/dev/nvidiactl:/dev/nvidiactl',
-        '--device=/dev/nvidia-modeset:/dev/nvidia-modeset',
-        '--device=/dev/nvidia-uvm:/dev/nvidia-uvm',
-        '--device=/dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools',
-        '-v', `${containerName}-home:/home/steam`,
-        '-v', '/tmp/.X11-unix:/tmp/.X11-unix',
-        '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
-        '-p', '47989-48000:47989-48000/tcp',
-        '-p', '47989-48000:47989-48000/udp',
-        '-p', '5900:5900',
-        'steam-sunshine-image'
-      ]);
+    // Create or update instance
+    instance = await prisma.instance.upsert({
+      where: { userId },
+      update: { status: 'starting', containerId: null },
+      create: {
+        userId,
+        status: 'starting',
+        containerId: null,
+      }
+    });
 
-      return new Promise((resolve, reject) => {
-        // Handle container start errors
-        startContainer.on('error', async (error) => {
-          console.error('Container start error:', error);
-          try {
-            await prisma.instance.update({
-              where: { id: instance!.id },
-              data: { status: 'error' }
-            });
-            reject(error);
-          } catch (dbError) {
-            console.error('Database update error:', dbError);
-            reject(dbError);
-          }
-        });
+    // Start Docker container
+    const containerName = `steam-${userId}`;
+    
+    // First check if container exists
+    const checkContainer = spawn('docker', ['ps', '-a', '--filter', `name=${containerName}`, '--format', '{{.ID}}']);
+    
+    let containerId = '';
+    checkContainer.stdout.on('data', (data) => {
+      containerId = data.toString().trim();
+    });
 
-        // Handle container close
-        startContainer.on('close', async (code) => {
-          try {
-            if (code === 0) {
-              const updatedInstance = await prisma.instance.update({
-                where: { id: instance!.id },
-                data: {
-                  status: 'running',
-                  containerId: containerName
+    await new Promise((resolve, reject) => {
+      checkContainer.on('close', async (code) => {
+        try {
+          if (containerId) {
+            // Container exists, try to remove it first
+            const removeContainer = spawn('docker', ['rm', '-f', containerName]);
+            await new Promise((resolveRemove, rejectRemove) => {
+              removeContainer.on('error', rejectRemove);
+              removeContainer.on('close', (code) => {
+                if (code === 0) {
+                  resolveRemove(null);
+                } else {
+                  rejectRemove(new Error(`Failed to remove container: exit code ${code}`));
                 }
               });
-              resolve(res.json(updatedInstance));
-            } else {
-              console.error(`Container exited with code ${code}`);
+            });
+          }
+
+          // Start new container
+          const startContainer = spawn('docker', [
+            'run',
+            '-d',
+            '--name', containerName,
+            '--gpus', 'all',
+            '--privileged',
+            '-e', 'DISPLAY=:0',
+            '-e', 'NVIDIA_VISIBLE_DEVICES=all',
+            '-e', 'NVIDIA_DRIVER_CAPABILITIES=all',
+            '-e', 'PULSE_SERVER=unix:/run/user/1000/pulse/native',
+            '--group-add', 'input',
+            '--device=/dev/input:/dev/input',
+            '--device=/dev/nvidia0:/dev/nvidia0',
+            '--device=/dev/nvidiactl:/dev/nvidiactl',
+            '--device=/dev/nvidia-modeset:/dev/nvidia-modeset',
+            '--device=/dev/nvidia-uvm:/dev/nvidia-uvm',
+            '--device=/dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools',
+            '-v', `${containerName}-home:/home/steam`,
+            '-v', '/tmp/.X11-unix:/tmp/.X11-unix',
+            '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
+            '-p', '47989-48000:47989-48000/tcp',
+            '-p', '47989-48000:47989-48000/udp',
+            '-p', '5900:5900',
+            'steam-sunshine-image'
+          ]);
+
+          let errorOutput = '';
+          startContainer.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+          });
+
+          startContainer.on('error', async (error) => {
+            console.error('Container start error:', error);
+            try {
               await prisma.instance.update({
                 where: { id: instance!.id },
                 data: { status: 'error' }
               });
-              reject(new Error(`Container start failed with code ${code}`));
+              reject(error);
+            } catch (dbError) {
+              console.error('Database update error:', dbError);
+              reject(dbError);
             }
-          } catch (dbError) {
-            console.error('Database update error:', dbError);
-            reject(dbError);
-          }
-        });
-      });
-    }
+          });
 
-    res.json(instance);
+          startContainer.on('close', async (code) => {
+            try {
+              if (code === 0) {
+                const updatedInstance = await prisma.instance.update({
+                  where: { id: instance!.id },
+                  data: {
+                    status: 'running',
+                    containerId: containerName
+                  }
+                });
+                resolve(res.json(updatedInstance));
+              } else {
+                console.error(`Container exited with code ${code}`);
+                console.error('Container error output:', errorOutput);
+                await prisma.instance.update({
+                  where: { id: instance!.id },
+                  data: { status: 'error' }
+                });
+                reject(new Error(`Container start failed with code ${code}. Error: ${errorOutput}`));
+              }
+            } catch (dbError) {
+              console.error('Database update error:', dbError);
+              reject(dbError);
+            }
+          });
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      checkContainer.on('error', reject);
+    });
+
   } catch (error) {
     console.error('Start instance error:', error);
+    // Try to update instance status to error if possible
+    if (instance?.id) {
+      try {
+        await prisma.instance.update({
+          where: { id: instance.id },
+          data: { status: 'error' }
+        });
+      } catch (dbError) {
+        console.error('Failed to update instance status:', dbError);
+      }
+    }
     next(error);
   }
 }));
@@ -140,10 +192,19 @@ router.post('/stop', authenticateToken, asyncHandler(async (req: Request, res: R
       return res.status(404).json({ error: 'No running instance found' });
     }
 
-    return new Promise((resolve, reject) => {
+    if (instance.status === 'stopped') {
+      return res.status(400).json({ error: 'Instance is already stopped' });
+    }
+
+    await new Promise((resolve, reject) => {
       // Stop Docker container
       const stopContainer = spawn('docker', ['stop', instance.containerId]);
       
+      let errorOutput = '';
+      stopContainer.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
       // Handle container stop errors
       stopContainer.on('error', async (error) => {
         console.error('Container stop error:', error);
@@ -161,7 +222,8 @@ router.post('/stop', authenticateToken, asyncHandler(async (req: Request, res: R
             resolve(res.json(updatedInstance));
           } else {
             console.error(`Container stop exited with code ${code}`);
-            reject(new Error(`Container stop failed with code ${code}`));
+            console.error('Container error output:', errorOutput);
+            reject(new Error(`Container stop failed with code ${code}. Error: ${errorOutput}`));
           }
         } catch (dbError) {
           console.error('Database update error:', dbError);

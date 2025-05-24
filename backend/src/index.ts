@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import instanceRoutes from './routes/instances.js';
 import { prisma } from './lib/prisma.js';
+import { Server } from 'http';
 
 dotenv.config();
 
@@ -99,35 +100,44 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-async function startServer() {
+async function startServer(): Promise<Server> {
+  let server: Server;
   try {
     console.log('Starting server initialization...');
     console.log('Testing database connection...');
     await testDbConnection();
     
     console.log('Setting up Express server...');
-    const server = app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
-    });
+    await new Promise<Server>((resolve, reject) => {
+      try {
+        server = app.listen(port, () => {
+          console.log(`Server running on port ${port}`);
+          resolve(server);
+        });
 
-    // Handle server errors
-    server.on('error', (error: NodeJS.ErrnoException) => {
-      console.error('Server error:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
-      });
-      
-      if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use`);
+        // Handle server errors
+        server.on('error', (error: NodeJS.ErrnoException) => {
+          console.error('Server error:', {
+            code: error.code,
+            message: error.message,
+            stack: error.stack
+          });
+          
+          if (error.code === 'EADDRINUSE') {
+            console.error(`Port ${port} is already in use`);
+          }
+          reject(error);
+        });
+
+        // Handle server close
+        server.on('close', async () => {
+          console.log('Server is shutting down');
+          await prisma.$disconnect();
+        });
+
+      } catch (error) {
+        reject(error);
       }
-      process.exit(1);
-    });
-
-    // Handle server close
-    server.on('close', () => {
-      console.log('Server is shutting down');
-      prisma.$disconnect();
     });
 
   } catch (error) {
@@ -138,10 +148,14 @@ async function startServer() {
         message: error.message,
         stack: error.stack
       });
+    } else {
+      console.error('Non-Error rejection reason:', JSON.stringify(error, null, 2));
     }
     await prisma.$disconnect();
     process.exit(1);
   }
+
+  return server!;
 }
 
 // Handle graceful shutdown
@@ -167,6 +181,8 @@ startServer().catch(async (error) => {
       message: error.message,
       stack: error.stack
     });
+  } else {
+    console.error('Non-Error rejection reason:', JSON.stringify(error, null, 2));
   }
   await prisma.$disconnect();
   process.exit(1);
