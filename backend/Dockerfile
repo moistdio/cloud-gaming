@@ -13,7 +13,9 @@ RUN npx prisma generate
 
 ENV PORT=7200
 ENV NODE_ENV=production
+ENV DATABASE_URL="postgresql://postgres:postgres@db:7400/cloudgaming"
 
 EXPOSE 7200
 
-CMD ["npm", "start"] 
+# Run migrations and start the application
+CMD npx prisma migrate deploy && npm start 
