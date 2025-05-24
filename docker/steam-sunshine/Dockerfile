@@ -1,5 +1,9 @@
 FROM ubuntu:22.04
 
+# Set noninteractive frontend
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     software-properties-common \
