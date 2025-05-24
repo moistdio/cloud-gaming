@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -14,14 +14,20 @@ async function main() {
       email: 'admin@cloudgaming.com',
       password: hashedPassword,
       role: 'ADMIN',
-      // Create an invite code for the admin
       inviteCodes: {
         create: {
           code: 'ADMIN2024',
-          isUsed: false
+          isUsed: false,
+          createdById: 'admin' // Will be replaced with actual ID
         }
       }
     }
+  });
+
+  // Update the invite code with the correct admin ID
+  await prisma.invite.updateMany({
+    where: { createdById: 'admin' },
+    data: { createdById: admin.id }
   });
 
   console.log('Seeded default admin account:', admin);

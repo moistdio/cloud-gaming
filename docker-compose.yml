@@ -4,66 +4,59 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     ports:
-      - "7100:3000"
+      - "7100:7100"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:7200
+      - NODE_ENV=production
+      - BACKEND_URL=http://backend:7200
     depends_on:
       - backend
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
     ports:
-      - "7200:3001"
+      - "7200:7200"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/cloudgaming
-      - JWT_SECRET=your-secret-key-change-this
+      - DATABASE_URL=postgresql://postgres:postgres@db:7400/cloudgaming
+      - JWT_SECRET=your-super-secret-key-change-in-production
+      - PORT=7200
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   steam:
     build:
       context: ./docker/steam-sunshine
-      dockerfile: Dockerfile
+    privileged: true
     ports:
-      - "7000-7099:7000-7099/tcp"
-      - "7000-7099:7000-7099/udp"
+      - "7000-7099:7000-7099"
       - "7300:5900"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    devices:
+      - /dev/dri:/dev/dri
     environment:
       - DISPLAY=:0
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-    volumes:
-      - steam-home:/home/steam
-      - /tmp/.X11-unix:/tmp/.X11-unix
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   db:
     image: postgres:14
+    ports:
+      - "7400:7400"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=cloudgaming
+    command: -p 7400
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "7400:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 7400"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  postgres_data:
-  steam-home: 
+  postgres_data: 
