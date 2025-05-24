@@ -21,14 +21,22 @@ process.on('unhandledRejection', (reason, promise) => {
 app.use(cors());
 app.use(express.json());
 
-// Database connection test
-async function testDbConnection() {
-  try {
-    await prisma.$connect();
-    console.log('Successfully connected to database');
-  } catch (error) {
-    console.error('Failed to connect to database:', error);
-    throw error; // Re-throw to be handled by startServer
+// Database connection test with retry
+async function testDbConnection(retries = 5, delay = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await prisma.$connect();
+      console.log('Successfully connected to database');
+      return;
+    } catch (error) {
+      console.error(`Failed to connect to database (attempt ${i + 1}/${retries}):`, error);
+      if (i < retries - 1) {
+        console.log(`Retrying in ${delay/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
   }
 }
 

@@ -34,12 +34,26 @@ services:
       - "7300:5900"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /run/user/1000/pulse:/run/user/1000/pulse
     devices:
       - /dev/dri:/dev/dri
+      - /dev/input:/dev/input
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    group_add:
+      - input
+      - video
+      - render
     environment:
       - DISPLAY=:0
       - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - XDG_RUNTIME_DIR=/run/user/1000
+    restart: unless-stopped
 
   db:
     image: postgres:14
