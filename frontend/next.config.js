@@ -2,8 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   env: {
-    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:7200',
-    PORT: process.env.PORT || '7100'
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7200'
   }
 }
 
