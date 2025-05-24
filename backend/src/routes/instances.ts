@@ -153,8 +153,8 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-p', '7609:47998/udp',
             '-p', '7610:47999/udp',
             '-p', '7611:48000/udp',
-            // VNC port (7700-7799)
-            '-p', '7700-7799:5900',  // VNC ports for user instances
+            // VNC port (7300)
+            '-p', '7300:5900',
             'cloud-gaming-steam'
           ]);
 

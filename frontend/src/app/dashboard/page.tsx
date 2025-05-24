@@ -145,7 +145,7 @@ export default function DashboardPage() {
                     <h4 className="text-md font-medium text-gray-900">VNC Connection (Alternative)</h4>
                     <ul className="mt-2 list-disc list-inside text-sm text-gray-500">
                       <li>Use any VNC client</li>
-                      <li>Connect to: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138:7700</span></li>
+                      <li>Connect to: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138:7300</span></li>
                       <li>No password required</li>
                     </ul>
                   </div>
