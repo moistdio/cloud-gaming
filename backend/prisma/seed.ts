@@ -13,24 +13,25 @@ async function main() {
     create: {
       email: 'admin@cloudgaming.com',
       password: hashedPassword,
-      role: 'ADMIN',
-      inviteCodes: {
-        create: {
-          code: 'ADMIN2024',
-          isUsed: false,
-          createdById: 'admin' // Will be replaced with actual ID
-        }
+      role: 'ADMIN'
+    }
+  });
+
+  // Create invite code with the correct admin ID
+  await prisma.invite.upsert({
+    where: { code: 'ADMIN2024' },
+    update: {},
+    create: {
+      code: 'ADMIN2024',
+      isUsed: false,
+      createdBy: {
+        connect: { id: admin.id }
       }
     }
   });
 
-  // Update the invite code with the correct admin ID
-  await prisma.invite.updateMany({
-    where: { createdById: 'admin' },
-    data: { createdById: admin.id }
-  });
-
-  console.log('Seeded default admin account:', admin);
+  console.log('Seeded default admin account:', admin.email);
+  console.log('Created default invite code: ADMIN2024');
 }
 
 main()
