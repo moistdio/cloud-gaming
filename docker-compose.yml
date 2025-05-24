@@ -35,6 +35,7 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/user/1000/pulse:/run/user/1000/pulse
+      - steam_home:/home/steam
     devices:
       - /dev/dri:/dev/dri
       - /dev/input:/dev/input
@@ -53,6 +54,14 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - XDG_RUNTIME_DIR=/run/user/1000
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
   db:
@@ -73,4 +82,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_data: 
+  postgres_data:
+  steam_home: 

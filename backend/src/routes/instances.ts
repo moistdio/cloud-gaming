@@ -3,18 +3,15 @@ import { PrismaClient } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { spawn } from 'child_process';
 
-interface AuthRequest extends Request {
-  user: {
-    id: string;
-  };
-}
-
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get user's instance
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const userId = req.user.id;
     const instance = await prisma.instance.findUnique({
       where: { userId }
@@ -27,8 +24,11 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 });
 
 // Start instance
-router.post('/start', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/start', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const userId = req.user.id;
     
     // Check if instance exists
@@ -74,20 +74,39 @@ router.post('/start', authenticateToken, async (req: AuthRequest, res: Response)
         'steam-sunshine-image'
       ]);
 
-      startContainer.on('close', async (code) => {
-        if (code === 0) {
-          await prisma.instance.update({
-            where: { id: instance!.id },
-            data: {
-              status: 'running',
-              containerId: containerName
-            }
-          });
-        } else {
+      // Handle container start errors
+      startContainer.on('error', async (error) => {
+        console.error('Container start error:', error);
+        try {
           await prisma.instance.update({
             where: { id: instance!.id },
             data: { status: 'error' }
           });
+        } catch (dbError) {
+          console.error('Database update error:', dbError);
+        }
+      });
+
+      // Handle container close
+      startContainer.on('close', async (code) => {
+        try {
+          if (code === 0) {
+            await prisma.instance.update({
+              where: { id: instance!.id },
+              data: {
+                status: 'running',
+                containerId: containerName
+              }
+            });
+          } else {
+            console.error(`Container exited with code ${code}`);
+            await prisma.instance.update({
+              where: { id: instance!.id },
+              data: { status: 'error' }
+            });
+          }
+        } catch (dbError) {
+          console.error('Database update error:', dbError);
         }
       });
     }
@@ -100,8 +119,11 @@ router.post('/start', authenticateToken, async (req: AuthRequest, res: Response)
 });
 
 // Stop instance
-router.post('/stop', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/stop', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const userId = req.user.id;
     const instance = await prisma.instance.findUnique({
       where: { userId }
@@ -114,15 +136,28 @@ router.post('/stop', authenticateToken, async (req: AuthRequest, res: Response) 
     // Stop Docker container
     const stopContainer = spawn('docker', ['stop', instance.containerId]);
     
+    // Handle container stop errors
+    stopContainer.on('error', async (error) => {
+      console.error('Container stop error:', error);
+      res.status(500).json({ error: 'Error stopping container' });
+    });
+
+    // Handle container close
     stopContainer.on('close', async (code) => {
-      if (code === 0) {
-        await prisma.instance.update({
-          where: { id: instance.id },
-          data: { status: 'stopped' }
-        });
-        res.json({ status: 'stopped' });
-      } else {
-        res.status(500).json({ error: 'Error stopping instance' });
+      try {
+        if (code === 0) {
+          await prisma.instance.update({
+            where: { id: instance.id },
+            data: { status: 'stopped' }
+          });
+          res.json({ status: 'stopped' });
+        } else {
+          console.error(`Container stop exited with code ${code}`);
+          res.status(500).json({ error: 'Error stopping instance' });
+        }
+      } catch (dbError) {
+        console.error('Database update error:', dbError);
+        res.status(500).json({ error: 'Database error while stopping instance' });
       }
     });
   } catch (error) {
@@ -132,8 +167,11 @@ router.post('/stop', authenticateToken, async (req: AuthRequest, res: Response) 
 });
 
 // Get instance status
-router.get('/status', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/status', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const userId = req.user.id;
     const instance = await prisma.instance.findUnique({
       where: { userId },

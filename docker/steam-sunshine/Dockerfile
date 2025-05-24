@@ -19,8 +19,9 @@ RUN apt-get update && apt-get install -y \
     pulseaudio \
     mesa-utils \
     vulkan-tools \
-    nvidia-driver-525 \
-    nvidia-utils-525 \
+    nvidia-driver-535 \
+    nvidia-utils-535 \
+    nvidia-cuda-toolkit \
     pkg-config \
     libboost-all-dev \
     xorg-dev \

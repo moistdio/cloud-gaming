@@ -1,13 +1,14 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Register new user with invite code
-router.post('/register', async (req, res) => {
+router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password, inviteCode } = req.body;
 
@@ -52,7 +53,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -84,14 +85,19 @@ router.post('/login', async (req, res) => {
 });
 
 // Generate invite code (protected route)
-router.post('/invite', async (req, res) => {
+router.post('/invite', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const userId = req.user.id;
     const inviteCode = Math.random().toString(36).substring(2, 15);
     
     await prisma.invite.create({
       data: {
         code: inviteCode,
-        used: false
+        used: false,
+        createdById: userId
       }
     });
 
