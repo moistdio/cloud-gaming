@@ -6,9 +6,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "7100:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_API_URL=http://localhost:7200
     depends_on:
       - backend
 
@@ -17,7 +17,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "7200:3001"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/cloudgaming
       - JWT_SECRET=your-secret-key-change-this
@@ -29,9 +29,9 @@ services:
       context: ./docker/steam-sunshine
       dockerfile: Dockerfile
     ports:
-      - "47989-48000:47989-48000/tcp"  # Sunshine ports
-      - "47989-48000:47989-48000/udp"  # Sunshine ports
-      - "5900:5900"  # VNC port (optional, for debugging)
+      - "7000-7099:7000-7099/tcp"
+      - "7000-7099:7000-7099/udp"
+      - "7300:5900"
     environment:
       - DISPLAY=:0
       - NVIDIA_VISIBLE_DEVICES=all
@@ -62,7 +62,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "7400:5432"
 
 volumes:
   postgres_data:
