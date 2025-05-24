@@ -38,8 +38,10 @@ services:
     image: cloud-gaming-steam
     privileged: true
     ports:
-      - "7000-7099:7000-7099"
-      - "7300:5900"
+      - "7000-7099:7000-7099"  # Sunshine ports
+      - "7200-7299:47989-48000/tcp"  # Moonlight ports for main service
+      - "7200-7299:47989-48000/udp"  # Moonlight ports for main service
+      - "7300:5900"  # Main service VNC port
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/user/1000/pulse:/run/user/1000/pulse
