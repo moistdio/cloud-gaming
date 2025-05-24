@@ -127,34 +127,34 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-v', `${containerName}-home:/home/steam`,
             '-v', '/tmp/.X11-unix:/tmp/.X11-unix',
             '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
-            // Map Moonlight TCP ports
-            '-p', '7400:47989/tcp',
-            '-p', '7401:47990/tcp',
-            '-p', '7402:47991/tcp',
-            '-p', '7403:47992/tcp',
-            '-p', '7404:47993/tcp',
-            '-p', '7405:47994/tcp',
-            '-p', '7406:47995/tcp',
-            '-p', '7407:47996/tcp',
-            '-p', '7408:47997/tcp',
-            '-p', '7409:47998/tcp',
-            '-p', '7410:47999/tcp',
-            '-p', '7411:48000/tcp',
-            // Map Moonlight UDP ports
-            '-p', '7400:47989/udp',
-            '-p', '7401:47990/udp',
-            '-p', '7402:47991/udp',
-            '-p', '7403:47992/udp',
-            '-p', '7404:47993/udp',
-            '-p', '7405:47994/udp',
-            '-p', '7406:47995/udp',
-            '-p', '7407:47996/udp',
-            '-p', '7408:47997/udp',
-            '-p', '7409:47998/udp',
-            '-p', '7410:47999/udp',
-            '-p', '7411:48000/udp',
-            // VNC port
-            '-p', '7301-7399:5900',  // VNC ports for user instances
+            // Map Moonlight TCP ports (7600-7611)
+            '-p', '7600:47989/tcp',
+            '-p', '7601:47990/tcp',
+            '-p', '7602:47991/tcp',
+            '-p', '7603:47992/tcp',
+            '-p', '7604:47993/tcp',
+            '-p', '7605:47994/tcp',
+            '-p', '7606:47995/tcp',
+            '-p', '7607:47996/tcp',
+            '-p', '7608:47997/tcp',
+            '-p', '7609:47998/tcp',
+            '-p', '7610:47999/tcp',
+            '-p', '7611:48000/tcp',
+            // Map Moonlight UDP ports (7600-7611)
+            '-p', '7600:47989/udp',
+            '-p', '7601:47990/udp',
+            '-p', '7602:47991/udp',
+            '-p', '7603:47992/udp',
+            '-p', '7604:47993/udp',
+            '-p', '7605:47994/udp',
+            '-p', '7606:47995/udp',
+            '-p', '7607:47996/udp',
+            '-p', '7608:47997/udp',
+            '-p', '7609:47998/udp',
+            '-p', '7610:47999/udp',
+            '-p', '7611:48000/udp',
+            // VNC port (7700-7799)
+            '-p', '7700-7799:5900',  // VNC ports for user instances
             'cloud-gaming-steam'
           ]);
 
