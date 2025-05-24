@@ -39,8 +39,30 @@ services:
     privileged: true
     ports:
       - "7000-7099:7000-7099"  # Sunshine ports
-      - "7200-7299:47989-48000/tcp"  # Moonlight ports for main service
-      - "7200-7299:47989-48000/udp"  # Moonlight ports for main service
+      - "7200:47989/tcp"  # Moonlight TCP ports for main service
+      - "7201:47990/tcp"
+      - "7202:47991/tcp"
+      - "7203:47992/tcp"
+      - "7204:47993/tcp"
+      - "7205:47994/tcp"
+      - "7206:47995/tcp"
+      - "7207:47996/tcp"
+      - "7208:47997/tcp"
+      - "7209:47998/tcp"
+      - "7210:47999/tcp"
+      - "7211:48000/tcp"
+      - "7200:47989/udp"  # Moonlight UDP ports for main service
+      - "7201:47990/udp"
+      - "7202:47991/udp"
+      - "7203:47992/udp"
+      - "7204:47993/udp"
+      - "7205:47994/udp"
+      - "7206:47995/udp"
+      - "7207:47996/udp"
+      - "7208:47997/udp"
+      - "7209:47998/udp"
+      - "7210:47999/udp"
+      - "7211:48000/udp"
       - "7300:5900"  # Main service VNC port
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
