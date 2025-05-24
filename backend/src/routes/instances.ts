@@ -1,13 +1,19 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth.js';
 import { spawn } from 'child_process';
+
+interface AuthRequest extends Request {
+  user: {
+    id: string;
+  };
+}
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get user's instance
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
     const instance = await prisma.instance.findUnique({
@@ -21,7 +27,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Start instance
-router.post('/start', authenticateToken, async (req, res) => {
+router.post('/start', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
     
@@ -47,9 +53,13 @@ router.post('/start', authenticateToken, async (req, res) => {
         '-d',
         '--name', containerName,
         '--gpus', 'all',
+        '--privileged',
         '-e', 'DISPLAY=:0',
         '-e', 'NVIDIA_VISIBLE_DEVICES=all',
         '-e', 'NVIDIA_DRIVER_CAPABILITIES=all',
+        '-e', 'PULSE_SERVER=unix:/run/user/1000/pulse/native',
+        '--group-add', 'input',
+        '--device=/dev/input:/dev/input',
         '--device=/dev/nvidia0:/dev/nvidia0',
         '--device=/dev/nvidiactl:/dev/nvidiactl',
         '--device=/dev/nvidia-modeset:/dev/nvidia-modeset',
@@ -57,6 +67,7 @@ router.post('/start', authenticateToken, async (req, res) => {
         '--device=/dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools',
         '-v', `${containerName}-home:/home/steam`,
         '-v', '/tmp/.X11-unix:/tmp/.X11-unix',
+        '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
         '-p', '47989-48000:47989-48000/tcp',
         '-p', '47989-48000:47989-48000/udp',
         '-p', '5900:5900',
@@ -89,7 +100,7 @@ router.post('/start', authenticateToken, async (req, res) => {
 });
 
 // Stop instance
-router.post('/stop', authenticateToken, async (req, res) => {
+router.post('/stop', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
     const instance = await prisma.instance.findUnique({
@@ -121,7 +132,7 @@ router.post('/stop', authenticateToken, async (req, res) => {
 });
 
 // Get instance status
-router.get('/status', authenticateToken, async (req, res) => {
+router.get('/status', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
     const instance = await prisma.instance.findUnique({

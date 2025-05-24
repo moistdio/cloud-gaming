@@ -13,7 +13,7 @@ const port = process.env.PORT || 7200;
 
 // Global error handler for unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Promise Rejection:', reason);
   // Don't exit the process, just log the error
 });
 
