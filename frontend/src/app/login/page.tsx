@@ -13,7 +13,9 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post(process.env.NEXT_PUBLIC_API_URL + '/api/auth/login', {
+      // Use the same hostname as the frontend, but with the backend port
+      const apiUrl = `http://${window.location.hostname}:7200`;
+      const response = await axios.post(`${apiUrl}/api/auth/login`, {
         email,
         password,
       });
