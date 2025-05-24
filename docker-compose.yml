@@ -71,9 +71,11 @@ services:
       - HOME=/home/steam
       - XVFB_WHD=1920x1080x24
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - steam_home:/home/steam
       - /dev/shm:/dev/shm
+    tmpfs:
+      - /tmp:exec,mode=1777
     devices:
       - /dev/dri:/dev/dri
       - /dev/input:/dev/input
