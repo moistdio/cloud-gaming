@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     vulkan-tools \
     nvidia-driver-525 \
     nvidia-utils-525 \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Steam user
@@ -34,7 +35,7 @@ RUN add-apt-repository multiverse && \
     echo steam steam/question select "I AGREE" | debconf-set-selections && \
     echo steam steam/license note '' | debconf-set-selections && \
     apt-get install -y \
-    steam-installer \
+    steam \
     libgl1-mesa-dri:i386 \
     libgl1-mesa-glx:i386 \
     libc6:i386 \
@@ -42,22 +43,22 @@ RUN add-apt-repository multiverse && \
 
 # Install Sunshine
 RUN wget https://github.com/LizardByte/Sunshine/releases/download/v0.20.0/sunshine-ubuntu-22.04-amd64.deb && \
+    apt-get update && \
     dpkg -i sunshine-ubuntu-22.04-amd64.deb || true && \
     apt-get install -f -y && \
-    rm sunshine-ubuntu-22.04-amd64.deb
+    rm sunshine-ubuntu-22.04-amd64.deb && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create virtual display configuration
-RUN mkdir -p /etc/X11/xorg.conf.d
+# Create necessary directories and set permissions
+RUN mkdir -p /etc/X11/xorg.conf.d && \
+    mkdir -p /home/steam/.config/sunshine && \
+    mkdir -p /home/steam/.config/openbox && \
+    mkdir -p /home/steam/.local/share/Steam && \
+    chown -R steam:steam /home/steam
+
+# Copy configuration files
 COPY xorg.conf /etc/X11/xorg.conf.d/10-virtual.conf
-
-# Set up Sunshine configuration
 COPY sunshine.conf /home/steam/.config/sunshine/sunshine.conf
-RUN mkdir -p /home/steam/.config && \
-    chown -R steam:steam /home/steam/.config
-
-# Create Openbox configuration directory
-RUN mkdir -p /home/steam/.config/openbox && \
-    chown -R steam:steam /home/steam/.config/openbox
 
 # Set working directory
 WORKDIR /home/steam

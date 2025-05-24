@@ -15,14 +15,14 @@ x11vnc -display :0 -nopw -forever -shared &
 # Start PulseAudio
 pulseaudio --start
 
-# Initialize NVIDIA X Server Settings
-nvidia-xconfig --allow-empty-initial-configuration --use-display-device=None --virtual=1920x1080
+# Initialize NVIDIA X Server Settings with sudo
+sudo nvidia-xconfig --allow-empty-initial-configuration --use-display-device=None --virtual=1920x1080
 
-# Start Steam in Big Picture Mode
-steam -bigpicture &
+# Start Steam in Big Picture Mode (with full path)
+/usr/games/steam -bigpicture &
 
-# Start Sunshine
-sunshine &
+# Start Sunshine (with full path)
+/usr/bin/sunshine &
 
 # Keep container running
 tail -f /dev/null 
