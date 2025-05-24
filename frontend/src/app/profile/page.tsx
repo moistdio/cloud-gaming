@@ -14,10 +14,6 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUserProfile();
-  }, []);
-
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -26,10 +22,15 @@ export default function ProfilePage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUser(response.data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      toast.error('Failed to fetch profile');
     }
   };
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
 
   const generateInviteCode = async () => {
     try {
@@ -41,7 +42,8 @@ export default function ProfilePage() {
       );
       setInviteCode(response.data.inviteCode);
       toast.success('Invite code generated successfully');
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to generate invite code:', err);
       toast.error('Failed to generate invite code');
     }
   };

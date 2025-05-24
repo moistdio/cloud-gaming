@@ -33,7 +33,8 @@ export default function SettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to update password:', err);
       toast.error('Failed to update password');
     }
   };

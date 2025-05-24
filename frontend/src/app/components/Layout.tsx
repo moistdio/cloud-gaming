@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { Bars3Icon, ComputerDesktopIcon, UserIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
 interface LayoutProps {
@@ -7,8 +6,6 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const router = useRouter();
-
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: ComputerDesktopIcon },
     { name: 'Profile', href: '/profile', icon: UserIcon },

@@ -18,12 +18,6 @@ export default function DashboardPage() {
   const [instance, setInstance] = useState<Instance | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchInstanceStatus();
-    const interval = setInterval(fetchInstanceStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchInstanceStatus = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -36,10 +30,17 @@ export default function DashboardPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setInstance(response.data);
-    } catch (error) {
-      console.error('Error fetching instance status:', error);
+    } catch (err) {
+      console.error('Error fetching instance status:', err);
+      toast.error('Failed to fetch instance status');
     }
   };
+
+  useEffect(() => {
+    fetchInstanceStatus();
+    const interval = setInterval(fetchInstanceStatus, 5000);
+    return () => clearInterval(interval);
+  }, [fetchInstanceStatus]);
 
   const startInstance = async () => {
     setLoading(true);
@@ -52,7 +53,8 @@ export default function DashboardPage() {
       );
       toast.success('Starting Steam instance...');
       await fetchInstanceStatus();
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to start instance:', err);
       toast.error('Failed to start instance');
     }
     setLoading(false);
@@ -69,7 +71,8 @@ export default function DashboardPage() {
       );
       toast.success('Stopping Steam instance...');
       await fetchInstanceStatus();
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to stop instance:', err);
       toast.error('Failed to stop instance');
     }
     setLoading(false);

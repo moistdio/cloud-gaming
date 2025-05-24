@@ -21,7 +21,8 @@ export default function LoginPage() {
       localStorage.setItem('token', response.data.token);
       toast.success('Login successful!');
       router.push('/dashboard');
-    } catch (error) {
+    } catch (err) {
+      console.error('Login failed:', err);
       toast.error('Invalid credentials');
     }
   };

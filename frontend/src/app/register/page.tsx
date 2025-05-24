@@ -23,7 +23,8 @@ export default function RegisterPage() {
       localStorage.setItem('token', response.data.token);
       toast.success('Registration successful!');
       router.push('/dashboard');
-    } catch (error) {
+    } catch (err) {
+      console.error('Registration failed:', err);
       toast.error('Registration failed. Please check your invite code.');
     }
   };
