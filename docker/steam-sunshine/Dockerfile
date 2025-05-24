@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y \
     nvidia-driver-525 \
     nvidia-utils-525 \
     pkg-config \
+    libboost-all-dev \
+    xorg-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Steam user
@@ -49,12 +51,14 @@ RUN wget https://github.com/LizardByte/Sunshine/releases/download/v0.20.0/sunshi
     rm sunshine-ubuntu-22.04-amd64.deb && \
     rm -rf /var/lib/apt/lists/*
 
-# Create necessary directories and set permissions
+# Fix permissions and create X11 config directory
 RUN mkdir -p /etc/X11/xorg.conf.d && \
     mkdir -p /home/steam/.config/sunshine && \
     mkdir -p /home/steam/.config/openbox && \
     mkdir -p /home/steam/.local/share/Steam && \
-    chown -R steam:steam /home/steam
+    chown -R steam:steam /home/steam && \
+    chmod 777 /etc/X11 && \
+    chmod 777 /etc/X11/xorg.conf.d
 
 # Copy configuration files
 COPY xorg.conf /etc/X11/xorg.conf.d/10-virtual.conf
