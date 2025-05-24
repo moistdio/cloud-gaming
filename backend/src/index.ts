@@ -37,6 +37,7 @@ app.use(express.json());
 
 // Database connection test with retry
 async function testDbConnection(retries = 5, delay = 5000) {
+  let lastError: Error | null = null;
   for (let i = 0; i < retries; i++) {
     try {
       await prisma.$connect();
@@ -47,15 +48,19 @@ async function testDbConnection(retries = 5, delay = 5000) {
       console.log('Database query test successful');
       return;
     } catch (error) {
-      console.error(`Failed to connect to database (attempt ${i + 1}/${retries}):`, error);
+      lastError = error as Error;
+      console.error(`Failed to connect to database (attempt ${i + 1}/${retries}):`, {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       if (i < retries - 1) {
         console.log(`Retrying in ${delay/1000} seconds...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        throw error;
       }
     }
   }
+  throw new Error(`Failed to connect to database after ${retries} attempts. Last error: ${lastError?.message}`);
 }
 
 // Routes

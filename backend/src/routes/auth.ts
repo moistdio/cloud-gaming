@@ -13,7 +13,7 @@ const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextF
 };
 
 // Register new user with invite code
-router.post('/register', asyncHandler(async (req: Request, res: Response) => {
+router.post('/register', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { email, password, inviteCode } = req.body;
 
   if (!email || !password || !inviteCode) {
@@ -26,11 +26,11 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
       where: { code: inviteCode },
       select: {
         id: true,
-        used: true
+        isUsed: true
       }
     });
 
-    if (!invite || invite.used) {
+    if (!invite || invite.isUsed) {
       return res.status(400).json({ error: 'Invalid or used invite code' });
     }
 
@@ -58,7 +58,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
 
       await tx.invite.update({
         where: { id: invite.id },
-        data: { used: true, usedById: user.id }
+        data: { isUsed: true, usedById: user.id }
       });
 
       return user;
@@ -74,12 +74,12 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
     res.json({ token });
   } catch (error) {
     console.error('Registration error:', error);
-    throw error;
+    next(error);
   }
 }));
 
 // Login
-router.post('/login', asyncHandler(async (req: Request, res: Response) => {
+router.post('/login', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -114,12 +114,12 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     res.json({ token });
   } catch (error) {
     console.error('Login error:', error);
-    throw error;
+    next(error);
   }
 }));
 
 // Generate invite code (protected route)
-router.post('/invite', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+router.post('/invite', authenticateToken, asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -151,7 +151,7 @@ router.post('/invite', authenticateToken, asyncHandler(async (req: Request, res:
     const invite = await prisma.invite.create({
       data: {
         code: inviteCode,
-        used: false,
+        isUsed: false,
         createdById: userId
       }
     });
@@ -159,7 +159,7 @@ router.post('/invite', authenticateToken, asyncHandler(async (req: Request, res:
     res.json({ inviteCode: invite.code });
   } catch (error) {
     console.error('Invite generation error:', error);
-    throw error;
+    next(error);
   }
 }));
 

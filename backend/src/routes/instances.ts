@@ -1,9 +1,18 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { prisma } from '../lib/prisma.js';
 
 const router = express.Router();
+
+interface Instance {
+  id: string;
+  userId: string;
+  status: string;
+  containerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // Async handler wrapper
 const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
@@ -62,8 +71,25 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
       containerId = data.toString().trim();
     });
 
-    await new Promise((resolve, reject) => {
+    let errorOutput = '';
+    checkContainer.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    const updatedInstance = await new Promise((resolve, reject) => {
+      checkContainer.on('error', (error) => {
+        console.error('Container check error:', error);
+        reject(new Error(`Failed to check container: ${error.message}`));
+      });
+
       checkContainer.on('close', async (code) => {
+        if (code !== 0) {
+          console.error(`Container check failed with code ${code}`);
+          console.error('Error output:', errorOutput);
+          reject(new Error(`Container check failed with code ${code}. Error: ${errorOutput}`));
+          return;
+        }
+
         try {
           if (containerId) {
             // Container exists, try to remove it first
@@ -107,9 +133,9 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             'steam-sunshine-image'
           ]);
 
-          let errorOutput = '';
+          let startErrorOutput = '';
           startContainer.stderr.on('data', (data) => {
-            errorOutput += data.toString();
+            startErrorOutput += data.toString();
           });
 
           startContainer.on('error', async (error) => {
@@ -136,15 +162,15 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
                     containerId: containerName
                   }
                 });
-                resolve(res.json(updatedInstance));
+                resolve(updatedInstance);
               } else {
                 console.error(`Container exited with code ${code}`);
-                console.error('Container error output:', errorOutput);
+                console.error('Container error output:', startErrorOutput);
                 await prisma.instance.update({
                   where: { id: instance!.id },
                   data: { status: 'error' }
                 });
-                reject(new Error(`Container start failed with code ${code}. Error: ${errorOutput}`));
+                reject(new Error(`Container start failed with code ${code}. Error: ${startErrorOutput}`));
               }
             } catch (dbError) {
               console.error('Database update error:', dbError);
@@ -155,9 +181,9 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
           reject(error);
         }
       });
-
-      checkContainer.on('error', reject);
     });
+
+    res.json(updatedInstance);
 
   } catch (error) {
     console.error('Start instance error:', error);
@@ -182,9 +208,10 @@ router.post('/stop', authenticateToken, asyncHandler(async (req: Request, res: R
     return res.status(401).json({ error: 'Authentication required' });
   }
   
+  let instance: Instance | null = null;
   try {
     const userId = req.user.id;
-    const instance = await prisma.instance.findUnique({
+    instance = await prisma.instance.findUnique({
       where: { userId }
     });
 
@@ -196,33 +223,45 @@ router.post('/stop', authenticateToken, asyncHandler(async (req: Request, res: R
       return res.status(400).json({ error: 'Instance is already stopped' });
     }
 
-    await new Promise((resolve, reject) => {
+    const updatedInstance = await new Promise<Instance>((resolve, reject) => {
       // Stop Docker container
-      const stopContainer = spawn('docker', ['stop', instance.containerId]);
+      const stopContainer = spawn('docker', ['stop', instance!.containerId!]);
       
       let errorOutput = '';
-      stopContainer.stderr.on('data', (data) => {
+      stopContainer.stderr?.on('data', (data: Buffer) => {
         errorOutput += data.toString();
       });
 
       // Handle container stop errors
-      stopContainer.on('error', async (error) => {
+      stopContainer.on('error', async (error: Error) => {
         console.error('Container stop error:', error);
+        try {
+          await prisma.instance.update({
+            where: { id: instance!.id },
+            data: { status: 'error' }
+          });
+        } catch (dbError) {
+          console.error('Database update error:', dbError);
+        }
         reject(error);
       });
 
       // Handle container close
-      stopContainer.on('close', async (code) => {
+      stopContainer.on('close', async (code: number) => {
         try {
           if (code === 0) {
             const updatedInstance = await prisma.instance.update({
-              where: { id: instance.id },
+              where: { id: instance!.id },
               data: { status: 'stopped' }
             });
-            resolve(res.json(updatedInstance));
+            resolve(updatedInstance);
           } else {
             console.error(`Container stop exited with code ${code}`);
             console.error('Container error output:', errorOutput);
+            await prisma.instance.update({
+              where: { id: instance!.id },
+              data: { status: 'error' }
+            });
             reject(new Error(`Container stop failed with code ${code}. Error: ${errorOutput}`));
           }
         } catch (dbError) {
@@ -231,8 +270,21 @@ router.post('/stop', authenticateToken, asyncHandler(async (req: Request, res: R
         }
       });
     });
+
+    res.json(updatedInstance);
   } catch (error) {
     console.error('Stop instance error:', error);
+    // Try to update instance status to error if possible
+    if (instance?.id) {
+      try {
+        await prisma.instance.update({
+          where: { id: instance.id },
+          data: { status: 'error' }
+        });
+      } catch (dbError) {
+        console.error('Failed to update instance status:', dbError);
+      }
+    }
     next(error);
   }
 }));
