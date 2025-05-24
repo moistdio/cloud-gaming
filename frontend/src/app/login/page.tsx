@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { getApiUrl } from '@/utils/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,9 +14,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Use the same hostname as the frontend, but with the backend port
-      const apiUrl = `http://${window.location.hostname}:7200`;
-      const response = await axios.post(`${apiUrl}/api/auth/login`, {
+      const response = await axios.post(getApiUrl('/api/auth/login'), {
         email,
         password,
       });

@@ -6,6 +6,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { PlayIcon, StopIcon } from '@heroicons/react/24/solid';
 import Layout from '../components/Layout';
+import { getApiUrl } from '@/utils/api';
 
 interface Instance {
   id: string;
@@ -26,7 +27,7 @@ export default function DashboardPage() {
         return;
       }
 
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/instances/status`, {
+      const response = await axios.get(getApiUrl('/api/instances/status'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setInstance(response.data);
@@ -47,7 +48,7 @@ export default function DashboardPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/instances/start`,
+        getApiUrl('/api/instances/start'),
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -65,7 +66,7 @@ export default function DashboardPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/instances/stop`,
+        getApiUrl('/api/instances/stop'),
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

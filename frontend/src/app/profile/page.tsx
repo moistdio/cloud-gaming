@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
+import { getApiUrl } from '@/utils/api';
 
 interface User {
   email: string;
@@ -18,7 +19,7 @@ export default function ProfilePage() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile`,
+        getApiUrl('/api/auth/profile'),
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUser(response.data);
@@ -36,7 +37,7 @@ export default function ProfilePage() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/invite`,
+        getApiUrl('/api/auth/invite'),
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
