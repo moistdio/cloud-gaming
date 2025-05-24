@@ -37,7 +37,6 @@ services:
       context: ./docker/steam-sunshine
     image: cloud-gaming-steam
     privileged: true
-    user: root
     ports:
       - "7000-7099:7000-7099"  # Sunshine ports
       - "7500:47989/tcp"  # Moonlight TCP ports for main service
@@ -65,12 +64,18 @@ services:
       - "7510:47999/udp"
       - "7511:48000/udp"
       - "7300:7300"  # VNC port
+    environment:
+      - DISPLAY=:0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - XDG_RUNTIME_DIR=/tmp
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/bus
+      - HOME=/home/steam
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - /run/user/1000/pulse:/run/user/1000/pulse
       - steam_home:/home/steam
-      - /etc/group:/etc/group:ro
-      - /etc/passwd:/etc/passwd:ro
+      - /dev/shm:/dev/shm
     devices:
       - /dev/dri:/dev/dri
       - /dev/input:/dev/input
@@ -83,14 +88,6 @@ services:
       - input
       - video
       - render
-    environment:
-      - DISPLAY=:0
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video
-      - PULSE_SERVER=unix:/run/user/1000/pulse/native
-      - XDG_RUNTIME_DIR=/run/user/1000
-      - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-      - XAUTHORITY=/home/steam/.Xauthority
     networks:
       - app-network
     deploy:
