@@ -129,14 +129,33 @@ export default function DashboardPage() {
               <h3 className="text-lg font-medium text-gray-900">Connection Information</h3>
               <div className="mt-4">
                 <p className="text-sm text-gray-500">
-                  Your Steam instance is running. You can now connect using Moonlight:
+                  Your Steam instance is running. You can connect using either Moonlight or VNC:
                 </p>
-                <ul className="mt-2 list-disc list-inside text-sm text-gray-500">
-                  <li>Open Moonlight on your device</li>
-                  <li>Add your server&apos;s IP address</li>
-                  <li>Select the Steam streaming session</li>
-                  <li>Enjoy your cloud gaming experience!</li>
-                </ul>
+                <div className="mt-4 space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="text-md font-medium text-gray-900">Moonlight Connection</h4>
+                    <ul className="mt-2 list-disc list-inside text-sm text-gray-500">
+                      <li>Open Moonlight on your device</li>
+                      <li>Add your server&apos;s IP address: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138</span></li>
+                      <li>Connection port: <span className="font-mono bg-gray-100 px-2 py-1 rounded">7600</span></li>
+                      <li>Select the Steam streaming session</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="text-md font-medium text-gray-900">VNC Connection (Alternative)</h4>
+                    <ul className="mt-2 list-disc list-inside text-sm text-gray-500">
+                      <li>Use any VNC client</li>
+                      <li>Connect to: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138:7700</span></li>
+                      <li>No password required</li>
+                    </ul>
+                  </div>
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <h4 className="text-md font-medium text-yellow-800">⚠️ Note</h4>
+                    <p className="mt-1 text-sm text-yellow-700">
+                      For the best gaming experience, we recommend using Moonlight over VNC. VNC is provided as a fallback option for troubleshooting.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
