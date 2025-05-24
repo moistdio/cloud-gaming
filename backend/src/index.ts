@@ -1,14 +1,13 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth.js';
 import instanceRoutes from './routes/instances.js';
+import { prisma } from './lib/prisma.js';
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
 const port = process.env.PORT || 7200;
 
 // Global error handler for unhandled promise rejections
@@ -21,10 +20,12 @@ process.on('unhandledRejection', (reason, promise) => {
       message: reason.message,
       stack: reason.stack
     });
+  } else {
+    console.error('Non-Error rejection reason:', JSON.stringify(reason, null, 2));
   }
 });
 
-// Async handler wrapper to catch promise rejections
+// Async handler wrapper
 const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
@@ -39,6 +40,10 @@ async function testDbConnection(retries = 5, delay = 5000) {
     try {
       await prisma.$connect();
       console.log('Successfully connected to database');
+      
+      // Test query to verify connection
+      await prisma.$queryRaw`SELECT 1`;
+      console.log('Database query test successful');
       return;
     } catch (error) {
       console.error(`Failed to connect to database (attempt ${i + 1}/${retries}):`, error);
@@ -67,7 +72,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Error:', {
     name: err.name,
     message: err.message,
-    stack: err.stack
+    stack: err.stack,
+    details: err
   });
   
   // Handle specific types of errors
@@ -95,24 +101,44 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server
 async function startServer() {
   try {
+    console.log('Starting server initialization...');
+    console.log('Testing database connection...');
     await testDbConnection();
     
+    console.log('Setting up Express server...');
     const server = app.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
 
     // Handle server errors
     server.on('error', (error: NodeJS.ErrnoException) => {
+      console.error('Server error:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+      
       if (error.code === 'EADDRINUSE') {
         console.error(`Port ${port} is already in use`);
-      } else {
-        console.error('Server error:', error);
       }
       process.exit(1);
     });
 
+    // Handle server close
+    server.on('close', () => {
+      console.log('Server is shutting down');
+      prisma.$disconnect();
+    });
+
   } catch (error) {
     console.error('Failed to start server:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+    }
     await prisma.$disconnect();
     process.exit(1);
   }
@@ -132,8 +158,16 @@ process.on('SIGINT', async () => {
 });
 
 // Start the server
+console.log('Initializing application...');
 startServer().catch(async (error) => {
   console.error('Fatal error during startup:', error);
+  if (error instanceof Error) {
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+  }
   await prisma.$disconnect();
   process.exit(1);
 }); 
