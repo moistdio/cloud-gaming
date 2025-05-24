@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/index.ts",
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node prisma/seed.js"
   },
   "scripts": {
     "start": "NODE_OPTIONS='--loader ts-node/esm' ts-node src/index.ts",
