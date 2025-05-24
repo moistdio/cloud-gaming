@@ -6,7 +6,10 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: []
-  }
+  },
+  // Port configuration
+  port: 7100,
+  hostname: '0.0.0.0'
 }
 
 module.exports = {

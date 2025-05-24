@@ -26,12 +26,23 @@ RUN apt-get update && apt-get install -y \
     xorg-dev \
     dbus \
     dbus-x11 \
+    vainfo \
+    va-driver-all \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Steam user to required groups
+# Add Steam user to required groups and set up directories
 RUN useradd -m steam && \
-    usermod -aG sudo,input,video,render steam && \
-    echo "steam ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    usermod -aG sudo,input,video,render,audio steam && \
+    echo "steam ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    # Create required directories with correct permissions
+    mkdir -p /run/user/1000 && \
+    chown -R steam:steam /run/user/1000 && \
+    chmod 700 /run/user/1000 && \
+    mkdir -p /home/steam/.config/pulse && \
+    chown -R steam:steam /home/steam/.config
+
+# Set up PulseAudio configuration
+COPY --chown=steam:steam pulse-client.conf /home/steam/.config/pulse/client.conf
 
 # Install Steam with correct path
 RUN add-apt-repository multiverse && \
@@ -46,8 +57,10 @@ RUN add-apt-repository multiverse && \
     libc6:i386 \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix Steam path
-RUN ln -s /usr/games/steam /usr/bin/steam
+# Fix Steam path and permissions
+RUN ln -s /usr/games/steam /usr/bin/steam && \
+    mkdir -p /home/steam/.local/share/Steam && \
+    chown -R steam:steam /home/steam/.local
 
 # Install Sunshine
 RUN wget https://github.com/LizardByte/Sunshine/releases/download/v0.20.0/sunshine-ubuntu-22.04-amd64.deb && \
