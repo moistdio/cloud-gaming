@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { spawn, ChildProcess } from 'child_process';
 import { prisma } from '../lib/prisma.js';
-import { allocatePorts, getMoonlightPortMappings, cleanupInvalidPortAllocations } from '../utils/portManager.js';
+// import { allocatePorts, getMoonlightPortMappings, cleanupInvalidPortAllocations } from '../utils/portManager.js';
 
 const router = express.Router();
 
@@ -72,10 +72,15 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
     }
 
     // Clean up any invalid port allocations before allocating new ports
-    await cleanupInvalidPortAllocations();
+    // await cleanupInvalidPortAllocations();
 
-    // Allocate ports for this instance
-    const ports = await allocatePorts();
+    // Allocate ports for this instance (temporary fixed allocation)
+    const ports = {
+      vncPort: 7300,
+      sunshinePort: 7000,
+      moonlightPortStart: 10000
+    };
+    // const ports = await allocatePorts();
     if (!ports) {
       return res.status(503).json({ error: 'No available ports. Please try again later.' });
     }
@@ -144,10 +149,10 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             });
           }
 
-          // Get Moonlight port mappings
-          const moonlightMappings = getMoonlightPortMappings(ports.moonlightPortStart);
+          // Get Moonlight port mappings (temporary fixed mapping)
+          // const moonlightMappings = getMoonlightPortMappings(ports.moonlightPortStart);
           
-          // Build Docker run command with dynamic ports
+          // Build Docker run command with fixed ports
           const dockerArgs = [
             'run',
             '-d',
@@ -173,16 +178,34 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             // VNC port mapping
             '-p', `${ports.vncPort}:${ports.vncPort}`,
             // Sunshine port mapping
-            '-p', `${ports.sunshinePort}:${ports.sunshinePort}`
+            '-p', `${ports.sunshinePort}:${ports.sunshinePort}`,
+            // Moonlight port mappings (fixed range)
+            '-p', '10000:47989/tcp',
+            '-p', '10001:47990/tcp',
+            '-p', '10002:47991/tcp',
+            '-p', '10003:47992/tcp',
+            '-p', '10004:47993/tcp',
+            '-p', '10005:47994/tcp',
+            '-p', '10006:47995/tcp',
+            '-p', '10007:47996/tcp',
+            '-p', '10008:47997/tcp',
+            '-p', '10009:47998/tcp',
+            '-p', '10010:47999/tcp',
+            '-p', '10011:48000/tcp',
+            '-p', '10000:47989/udp',
+            '-p', '10001:47990/udp',
+            '-p', '10002:47991/udp',
+            '-p', '10003:47992/udp',
+            '-p', '10004:47993/udp',
+            '-p', '10005:47994/udp',
+            '-p', '10006:47995/udp',
+            '-p', '10007:47996/udp',
+            '-p', '10008:47997/udp',
+            '-p', '10009:47998/udp',
+            '-p', '10010:47999/udp',
+            '-p', '10011:48000/udp',
+            'cloud-gaming-steam'
           ];
-
-          // Add Moonlight port mappings
-          moonlightMappings.forEach(mapping => {
-            dockerArgs.push('-p', `${mapping.host}:${mapping.container}/${mapping.protocol}`);
-          });
-
-          // Add the image name
-          dockerArgs.push('cloud-gaming-steam');
 
           // Start new container
           const startContainer = spawn('docker', dockerArgs);
@@ -199,11 +222,10 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
                 where: { id: instance!.id },
                 data: { status: 'error' }
               });
-              reject(error);
             } catch (dbError) {
               console.error('Database update error:', dbError);
-              reject(dbError);
             }
+            reject(error);
           });
 
           startContainer.on('close', async (code) => {
