@@ -45,7 +45,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api/Dockerfile.simple
     container_name: cloudstream-api
     environment:
       - NODE_ENV=production
@@ -72,7 +72,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/web/Dockerfile.simple
     container_name: cloudstream-web
     environment:
       - NODE_ENV=production

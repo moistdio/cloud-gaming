@@ -11,8 +11,8 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/types/package.json ./packages/types/
 COPY packages/database/package.json ./packages/database/
 
-# Install dependencies
-RUN npm install --production
+# Install ALL dependencies (including dev dependencies for build)
+RUN npm install
 
 # Rebuild the source code only when needed
 FROM base AS builder

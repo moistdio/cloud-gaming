@@ -10,8 +10,8 @@ COPY package.json ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/types/package.json ./packages/types/
 
-# Install dependencies
-RUN npm install --production
+# Install ALL dependencies (including dev dependencies for build)
+RUN npm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
