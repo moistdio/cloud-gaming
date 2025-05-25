@@ -131,10 +131,44 @@ chown user:user /home/user/.vnc/xstartup
 echo "🚀 Starting VNC Server on port $VNC_PORT..."
 
 # Zuerst alle bestehenden VNC-Server stoppen
-vncserver -kill $DISPLAY 2>/dev/null || true
+/opt/TurboVNC/bin/vncserver -kill $DISPLAY 2>/dev/null || true
 
-# VNC-Server als user starten mit sudo (korrigierte Syntax)
-sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
+# VNC-Server als user starten mit GPU-Unterstützung
+# Erstelle Xorg-Konfiguration für GPU
+cat > /tmp/xorg.conf << EOF
+Section "ServerLayout"
+    Identifier "Layout0"
+    Screen 0 "Screen0" 0 0
+EndSection
+
+Section "Screen"
+    Identifier "Screen0"
+    Device "Device0"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+        Modes "1920x1080"
+    EndSubSection
+EndSection
+
+Section "Device"
+    Identifier "Device0"
+    Driver "nvidia"
+    VendorName "NVIDIA Corporation"
+    Option "AllowEmptyInitialConfiguration" "true"
+    Option "UseDisplayDevice" "None"
+    Option "UseEdidDpi" "false"
+    Option "DPI" "96 x 96"
+    Option "NoLogo" "true"
+EndSection
+
+Section "Extensions"
+    Option "GLX" "Enable"
+EndSection
+EOF
+
+# VNC-Server mit GPU-Unterstützung starten (TurboVNC)
+sudo -u user HOME=/home/user /opt/TurboVNC/bin/vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -xstartup /home/user/.vnc/xstartup
 
 # noVNC Web-Interface starten
 echo "🌐 Starting noVNC Web Interface on port $WEB_VNC_PORT..."
@@ -207,7 +241,7 @@ cleanup() {
     echo "🛑 Shutting down Cloud Gaming Desktop..."
     
     # VNC-Server stoppen
-    sudo -u user HOME=/home/user vncserver -kill $DISPLAY || true
+    sudo -u user HOME=/home/user /opt/TurboVNC/bin/vncserver -kill $DISPLAY || true
     
     # noVNC stoppen
     pkill -f novnc_proxy || true
@@ -232,7 +266,7 @@ while true; do
         # VNC-Server neu starten falls nötig
         if ! netstat -ln | grep -q ":$VNC_PORT "; then
             echo "🔄 Restarting VNC Server..."
-            sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
+            sudo -u user HOME=/home/user /opt/TurboVNC/bin/vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -xstartup /home/user/.vnc/xstartup
         fi
         
         # noVNC neu starten falls nötig
