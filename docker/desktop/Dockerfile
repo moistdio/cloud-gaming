@@ -247,10 +247,14 @@ RUN apt-get update && apt-get install -y \
     mesa-utils-extra \
     # Zusätzliche GPU-Test-Tools
     x11-apps \
-    # VirtualGL für OpenGL über VNC
-    virtualgl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# VirtualGL separat von offizieller Quelle installieren
+RUN cd /tmp && \
+    wget -q https://sourceforge.net/projects/virtualgl/files/3.1/virtualgl_3.1_amd64.deb/download -O virtualgl_3.1_amd64.deb && \
+    dpkg -i virtualgl_3.1_amd64.deb || apt-get install -f -y && \
+    rm virtualgl_3.1_amd64.deb
 
 # Lutris separat installieren (mit PPA für neueste Version)
 RUN apt-get update && \
