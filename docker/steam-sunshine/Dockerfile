@@ -82,7 +82,6 @@ RUN mkdir -p /etc/X11/xorg.conf.d && \
 
 # Copy configuration files
 COPY xorg.conf /etc/X11/xorg.conf.d/10-virtual.conf
-COPY sunshine.conf /home/steam/.config/sunshine/sunshine.conf
 
 # Set working directory
 WORKDIR /home/steam
