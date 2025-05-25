@@ -296,9 +296,16 @@ RUN chown -R user:user /home/user/.config
 COPY gpu-init.sh /usr/local/bin/gpu-init.sh
 RUN chmod +x /usr/local/bin/gpu-init.sh
 
+# Steam-Wrapper-Script kopieren
+COPY steam-wrapper.sh /usr/local/bin/steam-wrapper.sh
+RUN chmod +x /usr/local/bin/steam-wrapper.sh
+
 # Startup-Script kopieren
 COPY start-desktop.sh /usr/local/bin/start-desktop.sh
 RUN chmod +x /usr/local/bin/start-desktop.sh
+
+# Steam-Wrapper als Standard-Steam-Befehl einrichten
+RUN ln -sf /usr/local/bin/steam-wrapper.sh /usr/local/bin/steam
 
 # VNC-Passwort als Umgebungsvariable setzen (zur Laufzeit)
 ENV VNC_PASSWORD=${VNC_PASSWORD}

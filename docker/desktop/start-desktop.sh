@@ -9,7 +9,14 @@ echo "🖥️ Starting Cloud Gaming Desktop..."
 
 # Enable user namespaces for Steam and other applications
 echo "🔧 Enabling user namespaces for Steam compatibility..."
-echo 1 > /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo "⚠️ Could not enable user namespaces (may require privileged container)"
+if echo 1 > /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null; then
+    echo "✅ User namespaces enabled successfully"
+else
+    echo "⚠️ Could not enable user namespaces via sysctl, trying alternative approach..."
+    # Alternative: Use --no-sandbox flag for Steam
+    export STEAM_EXTRA_FLAGS="--no-sandbox --disable-seccomp-filter-sandbox"
+    echo "✅ Steam will run with sandbox disabled"
+fi
 
 # Setup PulseAudio for Steam audio
 echo "🔊 Setting up audio for Steam..."
@@ -133,6 +140,11 @@ export __GL_THREADED_OPTIMIZATIONS=1
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam
 export STEAM_COMPAT_DATA_PATH=/home/user/.steam/steam
 export PULSE_RUNTIME_PATH=/var/run/pulse
+
+# Steam sandbox fallback flags (set during user namespace check)
+if [ ! -z "$STEAM_EXTRA_FLAGS" ]; then
+    export STEAM_EXTRA_FLAGS="$STEAM_EXTRA_FLAGS"
+fi
 
 # Vulkan-Support
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
