@@ -201,14 +201,12 @@ RUN apt-get update && apt-get install -y \
 # NVIDIA Vulkan ICD Verzeichnis erstellen (wird von gpu-init.sh konfiguriert)
 RUN mkdir -p /usr/share/vulkan/icd.d
 
-# Zusätzliche Vulkan-Bibliotheken installieren
+# Zusätzliche Vulkan-Bibliotheken installieren (verfügbare Pakete)
 RUN apt-get update && apt-get install -y \
-    # NVIDIA Vulkan Treiber
-    libnvidia-vulkan-producer-535 \
-    nvidia-vulkan-icd \
     # Mesa Vulkan Fallback
     mesa-vulkan-drivers \
     vulkan-tools \
+    vulkan-validationlayers \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
