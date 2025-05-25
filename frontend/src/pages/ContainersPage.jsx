@@ -17,7 +17,8 @@ import {
   IconButton,
   Tooltip,
   Stack,
-  Divider
+  Divider,
+  InputAdornment
 } from '@mui/material'
 import {
   PlayArrow as StartIcon,
@@ -26,7 +27,10 @@ import {
   Add as AddIcon,
   Computer as ComputerIcon,
   Visibility as ViewIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Key as KeyIcon,
+  ContentCopy as CopyIcon,
+  VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -39,6 +43,7 @@ const ContainersPage = () => {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { user } = useAuth()
 
   const {
@@ -65,6 +70,48 @@ const ContainersPage = () => {
   useEffect(() => {
     loadContainer()
   }, [])
+
+  // Passwort in Zwischenablage kopieren
+  const copyPasswordToClipboard = async () => {
+    if (container?.vncPassword) {
+      try {
+        await navigator.clipboard.writeText(container.vncPassword)
+        toast.success('Passwort in Zwischenablage kopiert!')
+      } catch (error) {
+        console.error('Fehler beim Kopieren:', error)
+        toast.error('Passwort konnte nicht kopiert werden')
+      }
+    }
+  }
+
+  // VNC-Passwort regenerieren
+  const handleRegeneratePassword = async () => {
+    if (!window.confirm('Sind Sie sicher, dass Sie ein neues VNC-Passwort generieren möchten? Das alte Passwort wird ungültig.')) {
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const response = await api.post('/containers/regenerate-password')
+      toast.success('Neues VNC-Passwort generiert!')
+      
+      // Container-Daten neu laden um das neue Passwort zu erhalten
+      await loadContainer()
+      
+      // Neues Passwort anzeigen
+      if (response.data.newPassword) {
+        toast.success(`Neues Passwort: ${response.data.newPassword}`, {
+          duration: 10000
+        })
+      }
+    } catch (error) {
+      console.error('Fehler beim Regenerieren des Passworts:', error)
+      const message = error.response?.data?.error || 'Passwort konnte nicht regeneriert werden'
+      toast.error(message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   // Container erstellen
   const handleCreateContainer = async (data) => {
@@ -222,6 +269,52 @@ const ContainersPage = () => {
                       <Typography variant="body2">
                         Web-VNC-Port: {container.webVncPort}
                       </Typography>
+                      
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          VNC-Passwort:
+                        </Typography>
+                        <TextField
+                          size="small"
+                          value={container.vncPassword || 'cloudgaming'}
+                          type={showPassword ? 'text' : 'password'}
+                          InputProps={{
+                            readOnly: true,
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <Tooltip title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}>
+                                  <IconButton
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    edge="end"
+                                    size="small"
+                                  >
+                                    {showPassword ? <VisibilityOffIcon /> : <ViewIcon />}
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Passwort kopieren">
+                                  <IconButton
+                                    onClick={copyPasswordToClipboard}
+                                    edge="end"
+                                    size="small"
+                                  >
+                                    <CopyIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              </InputAdornment>
+                            )
+                          }}
+                          sx={{ width: '100%', maxWidth: 300 }}
+                        />
+                        <Button
+                          size="small"
+                          startIcon={<KeyIcon />}
+                          onClick={handleRegeneratePassword}
+                          disabled={actionLoading}
+                          sx={{ mt: 1 }}
+                        >
+                          Neues Passwort generieren
+                        </Button>
+                      </Box>
                     </Box>
                   )}
                 </Stack>

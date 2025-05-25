@@ -2,6 +2,7 @@ const express = require('express');
 const Docker = require('dockerode');
 const { getDatabase } = require('../database/init');
 const { authenticateToken } = require('../middleware/auth');
+const crypto = require('crypto');
 
 const router = express.Router();
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -14,6 +15,17 @@ const WEB_VNC_PORT_END = 12430;
 
 // Alle Middleware-Funktionen benötigen Authentifizierung
 router.use(authenticateToken);
+
+// Hilfsfunktion: Sicheres Passwort generieren
+function generateSecurePassword(length = 12) {
+  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = crypto.randomInt(0, charset.length);
+    password += charset[randomIndex];
+  }
+  return password;
+}
 
 // Hilfsfunktion: Nächsten verfügbaren Port finden
 async function findAvailablePort(startPort, endPort, type = 'vnc') {
@@ -135,6 +147,7 @@ router.get('/', async (req, res) => {
         status: container.status,
         vncPort: container.vnc_port,
         webVncPort: container.web_port,
+        vncPassword: container.vnc_password || 'cloudgaming',
         createdAt: container.created_at,
         lastAccessed: container.last_accessed
       }
@@ -187,7 +200,10 @@ router.post('/create', async (req, res) => {
     const vncPort = await findAvailablePort(VNC_PORT_START, VNC_PORT_END, 'vnc');
     const webVncPort = await findAvailablePort(WEB_VNC_PORT_START, WEB_VNC_PORT_END, 'web');
 
-    console.log(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}`);
+    // Sicheres VNC-Passwort generieren
+    const vncPassword = generateSecurePassword(12);
+
+    console.log(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}, Passwort generiert`);
 
     // Docker-Container erstellen
     const containerConfig = {
@@ -197,7 +213,8 @@ router.post('/create', async (req, res) => {
         `VNC_PORT=${vncPort}`,
         `WEB_VNC_PORT=${webVncPort}`,
         `USER_ID=${userId}`,
-        `DISPLAY=:1`
+        `DISPLAY=:1`,
+        `VNC_PASSWORD=${vncPassword}`
       ],
       ExposedPorts: {
         [`${vncPort}/tcp`]: {},
@@ -223,11 +240,11 @@ router.post('/create', async (req, res) => {
 
     console.log(`Docker-Container erstellt: ${containerInfo.Id}`);
 
-    // Container in Datenbank speichern
+    // Container in Datenbank speichern (mit Passwort)
     const containerId = await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO containers (user_id, container_id, container_name, vnc_port, web_port, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, containerInfo.Id, containerName.trim(), vncPort, webVncPort, 'created'],
+        'INSERT INTO containers (user_id, container_id, container_name, vnc_port, web_port, vnc_password, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [userId, containerInfo.Id, containerName.trim(), vncPort, webVncPort, vncPassword, 'created'],
         function(err) {
           if (err) {
             console.error('Fehler beim Speichern in Datenbank:', err);
@@ -262,6 +279,7 @@ router.post('/create', async (req, res) => {
         status: 'created',
         vncPort: vncPort,
         webVncPort: webVncPort,
+        vncPassword: vncPassword,
         dockerId: containerInfo.Id
       }
     });
@@ -439,6 +457,75 @@ router.post('/stop', async (req, res) => {
     console.error('Fehler beim Stoppen des Containers:', error);
     res.status(500).json({
       error: 'Container konnte nicht gestoppt werden',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/containers/regenerate-password - VNC-Passwort regenerieren
+router.post('/regenerate-password', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const db = getDatabase();
+
+    // Container des Benutzers abrufen
+    const containerRecord = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM containers WHERE user_id = ?',
+        [userId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!containerRecord) {
+      return res.status(404).json({
+        error: 'Kein Container gefunden',
+        message: 'Sie müssen zuerst einen Container erstellen'
+      });
+    }
+
+    // Neues Passwort generieren
+    const newPassword = generateSecurePassword(12);
+
+    // Passwort in Datenbank aktualisieren
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE containers SET vnc_password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [newPassword, containerRecord.id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    // Log erstellen
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+        [userId, 'PASSWORD_REGENERATED', `VNC-Passwort für Container "${containerRecord.container_name}" regeneriert`, req.ip],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    console.log(`VNC-Passwort regeneriert für Container ${containerRecord.container_id} von Benutzer ${req.user.username}`);
+
+    res.json({
+      message: 'VNC-Passwort erfolgreich regeneriert',
+      newPassword: newPassword,
+      note: 'Das neue Passwort wird beim nächsten Container-Neustart aktiv'
+    });
+
+  } catch (error) {
+    console.error('Fehler beim Regenerieren des Passworts:', error);
+    res.status(500).json({
+      error: 'Passwort konnte nicht regeneriert werden',
       message: error.message
     });
   }

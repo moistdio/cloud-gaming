@@ -153,14 +153,46 @@ async function runMigrations() {
               return;
             }
             console.log('is_admin Spalte erfolgreich hinzugefügt');
-            resolve();
+            
+            // Prüfe und füge vnc_password Spalte hinzu
+            checkAndAddVncPassword(resolve, reject);
           });
         } else {
           console.log('is_admin Spalte existiert bereits');
-          resolve();
+          
+          // Prüfe und füge vnc_password Spalte hinzu
+          checkAndAddVncPassword(resolve, reject);
         }
       });
     });
+  });
+}
+
+// Hilfsfunktion für VNC-Passwort Migration
+function checkAndAddVncPassword(resolve, reject) {
+  db.all("PRAGMA table_info(containers)", (err, columns) => {
+    if (err) {
+      reject(err);
+      return;
+    }
+    
+    const hasVncPassword = columns.some(col => col.name === 'vnc_password');
+    
+    if (!hasVncPassword) {
+      console.log('Füge vnc_password Spalte zur containers Tabelle hinzu...');
+      db.run("ALTER TABLE containers ADD COLUMN vnc_password TEXT DEFAULT 'cloudgaming'", (err) => {
+        if (err) {
+          console.error('Fehler beim Hinzufügen der vnc_password Spalte:', err);
+          reject(err);
+          return;
+        }
+        console.log('vnc_password Spalte erfolgreich hinzugefügt');
+        resolve();
+      });
+    } else {
+      console.log('vnc_password Spalte existiert bereits');
+      resolve();
+    }
   });
 }
 
