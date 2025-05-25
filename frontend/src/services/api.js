@@ -98,6 +98,10 @@ export const containerAPI = {
   // Container-Details
   get: (containerId) =>
     api.get(`/containers/${containerId}`),
+  
+  // GPU-Status abrufen
+  getGPUStatus: () =>
+    api.get('/containers/gpu-status'),
 }
 
 // User API
@@ -131,6 +135,20 @@ export const userAPI = {
 export const healthAPI = {
   check: () =>
     api.get('/health'),
+}
+
+// Container Service (vereinfachte API für Components)
+export const containerService = {
+  // Container-Operationen
+  getContainers: () => containerAPI.list(),
+  createContainer: (name) => containerAPI.create(name),
+  startContainer: () => api.post('/containers/start'),
+  stopContainer: () => api.post('/containers/stop'),
+  deleteContainer: () => api.delete('/containers'),
+  regeneratePassword: () => api.post('/containers/regenerate-password'),
+  
+  // GPU-Status
+  getGPUStatus: () => containerAPI.getGPUStatus(),
 }
 
 export default api 

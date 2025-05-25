@@ -12,14 +12,27 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
+      # GPU-Device-Zugriff für Container-Management
+      - /dev/dri:/dev/dri:ro
     environment:
       - NODE_ENV=production
       - JWT_SECRET=your-super-secret-jwt-key-change-this
       - DB_PATH=/app/data/database.sqlite
+      # GPU-Runtime-Konfiguration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
     restart: unless-stopped
     networks:
       - cloud-gaming-network
-    privileged: true  # Für Docker-in-Docker
+    privileged: true  # Für Docker-in-Docker und GPU-Zugriff
+    # GPU-Runtime (falls verfügbar)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   # Frontend Web Interface
   frontend:

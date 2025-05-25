@@ -7,6 +7,14 @@ set -e
 
 echo "🖥️ Starting Cloud Gaming Desktop..."
 
+# GPU-Initialisierung ausführen
+echo "🎮 Initializing GPU hardware..."
+if [ -f "/usr/local/bin/gpu-init.sh" ]; then
+    /usr/local/bin/gpu-init.sh
+else
+    echo "⚠️ GPU initialization script not found, continuing without GPU acceleration"
+fi
+
 # Umgebungsvariablen mit Standardwerten
 VNC_PORT=${VNC_PORT:-11000}
 WEB_VNC_PORT=${WEB_VNC_PORT:-12000}
@@ -20,6 +28,15 @@ echo "  Web VNC Port: $WEB_VNC_PORT"
 echo "  Display: $DISPLAY"
 echo "  User ID: $USER_ID"
 echo "  Port Range: VNC 11000-11430, Web 12000-12430"
+
+# GPU-Status anzeigen
+if [ -f "/tmp/gpu_info.json" ]; then
+    echo "🎮 GPU Status:"
+    GPU_NAME=$(cat /tmp/gpu_info.json | grep '"gpu_name"' | cut -d'"' -f4)
+    GPU_MEMORY=$(cat /tmp/gpu_info.json | grep '"gpu_memory"' | cut -d'"' -f4)
+    echo "  GPU: $GPU_NAME"
+    echo "  Memory: ${GPU_MEMORY}MB"
+fi
 
 # Funktion zum Aktualisieren des VNC-Passworts
 update_vnc_password() {
@@ -85,7 +102,25 @@ export XKL_XMODMAP_DISABLE=1
 export XDG_CURRENT_DESKTOP="XFCE"
 export XDG_SESSION_DESKTOP="XFCE"
 
-# Start XFCE4 Desktop
+# GPU-spezifische Umgebungsvariablen
+export NVIDIA_VISIBLE_DEVICES=all
+export NVIDIA_DRIVER_CAPABILITIES=all
+export LIBGL_ALWAYS_INDIRECT=0
+export LIBGL_ALWAYS_SOFTWARE=0
+
+# OpenGL und Hardware-Beschleunigung aktivieren
+export __GL_SYNC_TO_VBLANK=1
+export __GL_YIELD="USLEEP"
+export VDPAU_DRIVER=nvidia
+
+# Vulkan-Support
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+
+# CUDA-Pfade
+export PATH=/usr/local/cuda/bin:\$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
+
+# Start XFCE4 Desktop with GPU acceleration
 startxfce4 &
 EOF
 

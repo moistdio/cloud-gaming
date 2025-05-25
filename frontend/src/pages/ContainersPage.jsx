@@ -37,6 +37,7 @@ import toast from 'react-hot-toast'
 
 import { api } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import GPUStatus from '../components/GPUStatus'
 
 const ContainersPage = () => {
   const [container, setContainer] = useState(null)
@@ -433,6 +434,9 @@ const ContainersPage = () => {
         </Card>
       )}
 
+      {/* GPU-Status */}
+      <GPUStatus />
+
       {/* Informationen */}
       <Card>
         <CardContent>
@@ -454,23 +458,29 @@ const ContainersPage = () => {
                 • LibreOffice Suite
                 <br />
                 • Entwicklungstools (Git, Nano, Vim)
+                <br />
+                • 🎮 GPU-Beschleunigung aktiviert
+                <br />
+                • 🎯 Gaming-optimiert (Steam, Wine)
               </Typography>
             </Grid>
             
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" gutterBottom>
-                Zugriffsmöglichkeiten
+                Hardware & Zugriff
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                • Web-Browser (noVNC)
+                • 🖥️ NVIDIA GPU-Unterstützung
                 <br />
-                • VNC-Client (TightVNC, RealVNC)
+                • 🎮 CUDA & OpenGL Beschleunigung
                 <br />
-                • Port-Bereich: VNC 11000-11430, Web 12000-12430
+                • 🌐 Web-Browser (noVNC)
                 <br />
-                • Automatische Port-Zuweisung
+                • 📱 VNC-Client (TightVNC, RealVNC)
                 <br />
-                • Maximal 430 gleichzeitige Container
+                • 🔧 Port-Bereich: VNC 11000-11430, Web 12000-12430
+                <br />
+                • ⚡ 4GB RAM + 2GB Shared Memory
               </Typography>
             </Grid>
           </Grid>

@@ -7,6 +7,13 @@ ENV VNC_PORT=11000
 ENV WEB_VNC_PORT=12000
 ENV VNC_PASSWORD=cloudgaming
 
+# GPU-spezifische Umgebungsvariablen
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=all
+ENV NVIDIA_REQUIRE_CUDA="cuda>=11.0"
+ENV LIBGL_ALWAYS_INDIRECT=0
+ENV LIBGL_ALWAYS_SOFTWARE=0
+
 # System aktualisieren und grundlegende Pakete installieren
 RUN apt-get update && apt-get install -y \
     # Desktop-Umgebung
@@ -21,6 +28,15 @@ RUN apt-get update && apt-get install -y \
     xfonts-100dpi \
     xfonts-scalable \
     xserver-xorg-core \
+    # GPU und Graphics Support
+    xserver-xorg-video-all \
+    mesa-utils \
+    mesa-utils-extra \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri \
+    libglu1-mesa \
+    libglew-dev \
+    freeglut3-dev \
     # System-Tools
     sudo \
     # Netzwerk-Tools
@@ -48,6 +64,53 @@ RUN apt-get update && apt-get install -y \
     # Zusätzliche Pakete
     fonts-liberation \
     fonts-dejavu \
+    # GPU Monitoring Tools
+    nvidia-smi \
+    nvtop \
+    # Gaming und Multimedia
+    steam-installer \
+    wine \
+    winetricks \
+    # Hardware-beschleunigte Video-Codecs
+    vainfo \
+    vdpauinfo \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# NVIDIA Container Toolkit Repository hinzufügen
+RUN curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+    && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+# CUDA Repository hinzufügen
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb \
+    && dpkg -i cuda-keyring_1.0-1_all.deb \
+    && rm cuda-keyring_1.0-1_all.deb
+
+# NVIDIA Treiber und CUDA installieren
+RUN apt-get update && apt-get install -y \
+    # NVIDIA Treiber
+    nvidia-driver-535 \
+    nvidia-utils-535 \
+    # CUDA Toolkit
+    cuda-toolkit-12-2 \
+    # NVIDIA Container Toolkit
+    nvidia-container-toolkit \
+    # Zusätzliche GPU Libraries
+    libnvidia-gl-535 \
+    libnvidia-encode-535 \
+    libnvidia-decode-535 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Vulkan Support installieren
+RUN apt-get update && apt-get install -y \
+    vulkan-tools \
+    vulkan-validationlayers \
+    libvulkan1 \
+    mesa-vulkan-drivers \
+    nvidia-vulkan-icd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -63,7 +126,10 @@ RUN cd /opt && \
 # Benutzer erstellen (wird zur Laufzeit überschrieben)
 RUN useradd -m -s /bin/bash -u 1000 user && \
     echo "user:cloudgaming" | chpasswd && \
-    usermod -aG sudo user
+    usermod -aG sudo user && \
+    # Benutzer zu GPU-Gruppen hinzufügen
+    usermod -aG video user && \
+    usermod -aG render user
 
 # VNC-Verzeichnis vorbereiten
 RUN mkdir -p /home/user/.vnc && \
@@ -116,8 +182,34 @@ RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
   </property>\n\
 </channel>' > /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 
+# GPU-Test-Anwendungen installieren
+RUN apt-get update && apt-get install -y \
+    # 3D-Test-Anwendungen
+    glmark2 \
+    mesa-demos \
+    # Benchmark-Tools
+    unigine-heaven \
+    # Gaming-Plattformen
+    lutris \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# X11-Konfiguration für GPU-Beschleunigung
+RUN mkdir -p /etc/X11/xorg.conf.d && \
+    echo 'Section "Device"\n\
+    Identifier "nvidia"\n\
+    Driver "nvidia"\n\
+    VendorName "NVIDIA Corporation"\n\
+    Option "AllowEmptyInitialConfiguration"\n\
+    Option "UseDisplayDevice" "None"\n\
+EndSection' > /etc/X11/xorg.conf.d/10-nvidia.conf
+
 # Berechtigungen setzen
 RUN chown -R user:user /home/user/.config
+
+# GPU-Initialisierungs-Script erstellen
+COPY gpu-init.sh /usr/local/bin/gpu-init.sh
+RUN chmod +x /usr/local/bin/gpu-init.sh
 
 # Startup-Script kopieren
 COPY start-desktop.sh /usr/local/bin/start-desktop.sh

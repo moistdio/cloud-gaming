@@ -205,7 +205,7 @@ router.post('/create', async (req, res) => {
 
     console.log(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}, Passwort generiert`);
 
-    // Docker-Container erstellen
+    // Docker-Container erstellen mit GPU-Support
     const containerConfig = {
       Image: 'cloud-gaming-desktop:latest',
       name: `desktop-${userId}-${Date.now()}`,
@@ -214,7 +214,13 @@ router.post('/create', async (req, res) => {
         `WEB_VNC_PORT=${webVncPort}`,
         `USER_ID=${userId}`,
         `DISPLAY=:1`,
-        `VNC_PASSWORD=${vncPassword}`
+        `VNC_PASSWORD=${vncPassword}`,
+        // GPU-spezifische Umgebungsvariablen
+        `NVIDIA_VISIBLE_DEVICES=all`,
+        `NVIDIA_DRIVER_CAPABILITIES=all`,
+        `NVIDIA_REQUIRE_CUDA=cuda>=11.0`,
+        `LIBGL_ALWAYS_INDIRECT=0`,
+        `LIBGL_ALWAYS_SOFTWARE=0`
       ],
       ExposedPorts: {
         [`${vncPort}/tcp`]: {},
@@ -225,14 +231,36 @@ router.post('/create', async (req, res) => {
           [`${vncPort}/tcp`]: [{ HostPort: vncPort.toString() }],
           [`${webVncPort}/tcp`]: [{ HostPort: webVncPort.toString() }]
         },
-        Memory: 2 * 1024 * 1024 * 1024, // 2GB RAM Limit
-        CpuShares: 1024, // Standard CPU-Anteil
+        Memory: 4 * 1024 * 1024 * 1024, // 4GB RAM Limit (erhöht für GPU-Workloads)
+        CpuShares: 2048, // Erhöhter CPU-Anteil für Gaming
         RestartPolicy: {
           Name: 'unless-stopped'
-        }
+        },
+        // GPU-Runtime-Konfiguration
+        Runtime: 'nvidia',
+        DeviceRequests: [
+          {
+            Driver: 'nvidia',
+            Count: -1, // Alle verfügbaren GPUs
+            Capabilities: [['gpu', 'compute', 'utility', 'video', 'graphics', 'display']]
+          }
+        ],
+        // Zusätzliche Devices für GPU-Zugriff
+        Devices: [
+          {
+            PathOnHost: '/dev/dri',
+            PathInContainer: '/dev/dri',
+            CgroupPermissions: 'rwm'
+          }
+        ],
+        // Privileged Mode für GPU-Zugriff
+        Privileged: false, // Sicherheit: nur spezifische Capabilities
+        CapAdd: ['SYS_ADMIN'], // Für GPU-Management
+        // Shared Memory für GPU-Anwendungen
+        ShmSize: 2 * 1024 * 1024 * 1024 // 2GB Shared Memory
       },
       WorkingDir: '/home/user',
-      User: 'root'  // Als root starten für Setup
+      User: 'root'  // Als root starten für GPU-Setup
     };
 
     const container = await docker.createContainer(containerConfig);
@@ -684,6 +712,173 @@ router.get('/logs', async (req, res) => {
     console.error('Fehler beim Abrufen der Container-Logs:', error);
     res.status(500).json({
       error: 'Container-Logs konnten nicht abgerufen werden'
+    });
+  }
+});
+
+// GET /api/containers/gpu-status - GPU-Status abrufen
+router.get('/gpu-status', async (req, res) => {
+  try {
+    console.log('GPU-Status angefordert');
+
+    // GPU-Informationen sammeln
+    const gpuInfo = {
+      available: false,
+      nvidia: false,
+      driver_version: null,
+      cuda_version: null,
+      devices: [],
+      capabilities: {
+        opengl: false,
+        vulkan: false,
+        cuda: false,
+        video_encode: false,
+        video_decode: false
+      },
+      runtime_support: false
+    };
+
+    try {
+      // Prüfe ob NVIDIA Container Runtime verfügbar ist
+      const dockerInfo = await docker.info();
+      
+      // Prüfe auf NVIDIA Runtime
+      if (dockerInfo.Runtimes && dockerInfo.Runtimes.nvidia) {
+        gpuInfo.runtime_support = true;
+        console.log('NVIDIA Container Runtime detected');
+      }
+
+      // Versuche GPU-Informationen über Docker zu ermitteln
+      try {
+        // Erstelle temporären Container für GPU-Test
+        const testContainer = await docker.createContainer({
+          Image: 'nvidia/cuda:12.2-base-ubuntu22.04',
+          Cmd: ['nvidia-smi', '--query-gpu=name,driver_version,memory.total', '--format=csv,noheader,nounits'],
+          HostConfig: {
+            Runtime: 'nvidia',
+            DeviceRequests: [
+              {
+                Driver: 'nvidia',
+                Count: -1,
+                Capabilities: [['gpu']]
+              }
+            ],
+            AutoRemove: true
+          },
+          Env: [
+            'NVIDIA_VISIBLE_DEVICES=all',
+            'NVIDIA_DRIVER_CAPABILITIES=all'
+          ]
+        });
+
+        // Container starten und Output lesen
+        await testContainer.start();
+        
+        const stream = await testContainer.logs({
+          stdout: true,
+          stderr: true,
+          follow: false
+        });
+
+        const output = stream.toString();
+        
+        if (output && !output.includes('error') && !output.includes('failed')) {
+          gpuInfo.available = true;
+          gpuInfo.nvidia = true;
+          
+          // Parse GPU-Informationen
+          const lines = output.trim().split('\n');
+          lines.forEach(line => {
+            const parts = line.split(', ');
+            if (parts.length >= 3) {
+              gpuInfo.devices.push({
+                name: parts[0].trim(),
+                driver_version: parts[1].trim(),
+                memory_mb: parseInt(parts[2].trim()) || 0
+              });
+            }
+          });
+
+          if (gpuInfo.devices.length > 0) {
+            gpuInfo.driver_version = gpuInfo.devices[0].driver_version;
+          }
+
+          // Setze Capabilities basierend auf NVIDIA-Verfügbarkeit
+          gpuInfo.capabilities = {
+            opengl: true,
+            vulkan: true,
+            cuda: true,
+            video_encode: true,
+            video_decode: true
+          };
+        }
+
+        // Container wird automatisch entfernt (AutoRemove: true)
+        
+      } catch (testError) {
+        console.log('GPU-Test-Container fehlgeschlagen:', testError.message);
+        
+        // Fallback: Prüfe ob GPU-Devices im Host verfügbar sind
+        try {
+          const fs = require('fs');
+          if (fs.existsSync('/dev/dri') || fs.existsSync('/dev/nvidia0')) {
+            gpuInfo.available = true;
+            console.log('GPU-Devices im Host-System gefunden');
+          }
+        } catch (fsError) {
+          console.log('Konnte Host-GPU-Devices nicht prüfen:', fsError.message);
+        }
+      }
+
+    } catch (dockerError) {
+      console.log('Docker-GPU-Prüfung fehlgeschlagen:', dockerError.message);
+    }
+
+    // Zusätzliche Systemprüfungen
+    try {
+      const { exec } = require('child_process');
+      
+      // Prüfe nvidia-smi im Host
+      exec('nvidia-smi --version', (error, stdout, stderr) => {
+        if (!error && stdout) {
+          const versionMatch = stdout.match(/CUDA Version: ([\d.]+)/);
+          if (versionMatch) {
+            gpuInfo.cuda_version = versionMatch[1];
+          }
+        }
+      });
+
+    } catch (execError) {
+      console.log('Host-GPU-Prüfung fehlgeschlagen:', execError.message);
+    }
+
+    console.log('GPU-Status ermittelt:', gpuInfo);
+
+    res.json({
+      gpu: gpuInfo,
+      timestamp: new Date().toISOString(),
+      message: gpuInfo.available 
+        ? 'GPU-Beschleunigung verfügbar' 
+        : 'Keine GPU-Beschleunigung verfügbar'
+    });
+
+  } catch (error) {
+    console.error('Fehler beim Abrufen des GPU-Status:', error);
+    res.status(500).json({
+      error: 'GPU-Status konnte nicht abgerufen werden',
+      message: error.message,
+      gpu: {
+        available: false,
+        nvidia: false,
+        runtime_support: false,
+        capabilities: {
+          opengl: false,
+          vulkan: false,
+          cuda: false,
+          video_encode: false,
+          video_decode: false
+        }
+      }
     });
   }
 });
