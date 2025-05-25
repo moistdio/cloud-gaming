@@ -242,7 +242,10 @@ RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
 RUN apt-get update && apt-get install -y \
     # 3D-Test-Anwendungen
     glmark2 \
-    mesa-demos \
+    mesa-utils \
+    mesa-utils-extra \
+    # Zusätzliche GPU-Test-Tools
+    x11-apps \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
