@@ -10,7 +10,7 @@ COPY apps/streaming-orchestrator/package*.json ./
 COPY apps/streaming-orchestrator/tsconfig.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY apps/streaming-orchestrator/src/ ./src/
