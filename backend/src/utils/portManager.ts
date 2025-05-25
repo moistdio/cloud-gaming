@@ -2,12 +2,67 @@ import { prisma } from '../lib/prisma.js';
 
 // Port ranges for different services
 const PORT_RANGES = {
-  VNC: { start: 8000, end: 8999 },           // VNC ports: 8000-8999
-  SUNSHINE: { start: 9000, end: 9999 },      // Sunshine ports: 9000-9999
+  VNC: { start: 7000, end: 7500 },           // VNC ports: 7000-7500
+  SUNSHINE: { start: 7501, end: 8000 },      // Sunshine ports: 7501-8000
   MOONLIGHT: { start: 10000, end: 19999 }    // Moonlight ports: 10000-19999 (each user gets 12 consecutive ports)
 };
 
 const MOONLIGHT_PORTS_PER_USER = 12; // Each user needs 12 consecutive ports for Moonlight
+
+/**
+ * Clean up instances with invalid port allocations
+ */
+export async function cleanupInvalidPortAllocations(): Promise<void> {
+  try {
+    // Find instances with ports outside our valid ranges
+    const invalidInstances = await prisma.instance.findMany({
+      where: {
+        OR: [
+          {
+            vncPort: {
+              OR: [
+                { lt: PORT_RANGES.VNC.start },
+                { gt: PORT_RANGES.VNC.end }
+              ]
+            }
+          },
+          {
+            sunshinePort: {
+              OR: [
+                { lt: PORT_RANGES.SUNSHINE.start },
+                { gt: PORT_RANGES.SUNSHINE.end }
+              ]
+            }
+          },
+          {
+            moonlightPortStart: {
+              OR: [
+                { lt: PORT_RANGES.MOONLIGHT.start },
+                { gt: PORT_RANGES.MOONLIGHT.end - MOONLIGHT_PORTS_PER_USER }
+              ]
+            }
+          }
+        ]
+      }
+    });
+
+    // Reset port allocations for invalid instances
+    for (const instance of invalidInstances) {
+      await prisma.instance.update({
+        where: { id: instance.id },
+        data: {
+          vncPort: null,
+          sunshinePort: null,
+          moonlightPortStart: null,
+          status: 'stopped'
+        }
+      });
+      console.log(`Reset port allocation for instance ${instance.id}`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up invalid port allocations:', error);
+  }
+}
 
 /**
  * Get all currently allocated ports from the database
@@ -17,6 +72,9 @@ async function getAllocatedPorts(): Promise<{
   sunshinePorts: number[];
   moonlightPortRanges: Array<{ start: number; end: number }>;
 }> {
+  // First clean up any invalid allocations
+  await cleanupInvalidPortAllocations();
+
   const instances = await prisma.instance.findMany({
     where: {
       status: { in: ['starting', 'running'] },

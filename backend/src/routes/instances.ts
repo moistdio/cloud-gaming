@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { spawn, ChildProcess } from 'child_process';
 import { prisma } from '../lib/prisma.js';
-import { allocatePorts, getMoonlightPortMappings } from '../utils/portManager.js';
+import { allocatePorts, getMoonlightPortMappings, cleanupInvalidPortAllocations } from '../utils/portManager.js';
 
 const router = express.Router();
 
@@ -44,6 +44,9 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
   
   let instance;
   try {
+    // Clean up any invalid port allocations first
+    await cleanupInvalidPortAllocations();
+
     // Check if instance exists
     instance = await prisma.instance.findUnique({
       where: { userId }
@@ -51,6 +54,24 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
 
     if (instance?.status === 'running') {
       return res.status(400).json({ error: 'Instance is already running' });
+    }
+
+    // Stop any existing container for this user
+    const containerName = `steam-${userId}`;
+    try {
+      const stopExisting = spawn('docker', ['stop', containerName]);
+      await new Promise((resolve) => {
+        stopExisting.on('close', () => resolve(null));
+        stopExisting.on('error', () => resolve(null)); // Ignore errors if container doesn't exist
+      });
+      
+      const removeExisting = spawn('docker', ['rm', '-f', containerName]);
+      await new Promise((resolve) => {
+        removeExisting.on('close', () => resolve(null));
+        removeExisting.on('error', () => resolve(null)); // Ignore errors if container doesn't exist
+      });
+    } catch (error) {
+      console.log('No existing container to clean up, continuing...');
     }
 
     // Allocate ports for this instance
@@ -80,9 +101,6 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
     });
 
     // Start Docker container
-    const containerName = `steam-${userId}`;
-    
-    // First check if container exists
     const checkContainer = spawn('docker', ['ps', '-a', '--filter', `name=${containerName}`, '--format', '{{.ID}}']);
     
     let containerId = '';
