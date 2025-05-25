@@ -23,28 +23,37 @@ export async function cleanupInvalidPortAllocations(): Promise<void> {
       where: {
         OR: [
           {
-            vncPort: {
-              OR: [
-                { lt: PORT_RANGES.VNC.start },
-                { gt: PORT_RANGES.VNC.end }
-              ]
-            }
+            AND: [
+              { vncPort: { not: null } },
+              {
+                OR: [
+                  { vncPort: { lt: PORT_RANGES.VNC.start } },
+                  { vncPort: { gt: PORT_RANGES.VNC.end } }
+                ]
+              }
+            ]
           },
           {
-            sunshinePort: {
-              OR: [
-                { lt: PORT_RANGES.SUNSHINE.start },
-                { gt: PORT_RANGES.SUNSHINE.end }
-              ]
-            }
+            AND: [
+              { sunshinePort: { not: null } },
+              {
+                OR: [
+                  { sunshinePort: { lt: PORT_RANGES.SUNSHINE.start } },
+                  { sunshinePort: { gt: PORT_RANGES.SUNSHINE.end } }
+                ]
+              }
+            ]
           },
           {
-            moonlightPortStart: {
-              OR: [
-                { lt: PORT_RANGES.MOONLIGHT.start },
-                { gt: PORT_RANGES.MOONLIGHT.end - MOONLIGHT_PORTS_PER_USER }
-              ]
-            }
+            AND: [
+              { moonlightPortStart: { not: null } },
+              {
+                OR: [
+                  { moonlightPortStart: { lt: PORT_RANGES.MOONLIGHT.start } },
+                  { moonlightPortStart: { gt: PORT_RANGES.MOONLIGHT.end - MOONLIGHT_PORTS_PER_USER } }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -92,11 +101,15 @@ async function getAllocatedPorts(): Promise<{
     
     const instances = await prisma.instance.findMany({
       where: {
-        status: { in: ['starting', 'running'] },
-        OR: [
-          { vncPort: { not: null } },
-          { sunshinePort: { not: null } },
-          { moonlightPortStart: { not: null } }
+        AND: [
+          { status: { in: ['starting', 'running'] } },
+          {
+            OR: [
+              { vncPort: { not: null } },
+              { sunshinePort: { not: null } },
+              { moonlightPortStart: { not: null } }
+            ]
+          }
         ]
       },
       select: {
