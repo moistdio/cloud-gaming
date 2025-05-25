@@ -820,6 +820,9 @@ router.get('/gpu-status', async (req, res) => {
         // Container starten und Output lesen
         await testContainer.start();
         
+        // Warte bis Container fertig ist
+        await testContainer.wait();
+        
         const stream = await testContainer.logs({
           stdout: true,
           stderr: true,
@@ -827,21 +830,27 @@ router.get('/gpu-status', async (req, res) => {
         });
 
         const output = stream.toString();
+        console.log('GPU Test Container Output:', output);
         
-        if (output && !output.includes('error') && !output.includes('failed')) {
+        if (output && !output.includes('error') && !output.includes('failed') && output.trim().length > 0) {
           gpuInfo.available = true;
           gpuInfo.nvidia = true;
           
           // Parse GPU-Informationen
           const lines = output.trim().split('\n');
           lines.forEach(line => {
-            const parts = line.split(', ');
-            if (parts.length >= 3) {
-              gpuInfo.devices.push({
-                name: parts[0].trim(),
-                driver_version: parts[1].trim(),
-                memory_mb: parseInt(parts[2].trim()) || 0
-              });
+            // Entferne Docker-Log-Prefixes falls vorhanden
+            const cleanLine = line.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s+/, '').trim();
+            
+            if (cleanLine && cleanLine.includes(',')) {
+              const parts = cleanLine.split(',');
+              if (parts.length >= 3) {
+                gpuInfo.devices.push({
+                  name: parts[0].trim(),
+                  driver_version: parts[1].trim(),
+                  memory_mb: parseInt(parts[2].trim()) || 0
+                });
+              }
             }
           });
 
@@ -857,6 +866,10 @@ router.get('/gpu-status', async (req, res) => {
             video_encode: true,
             video_decode: true
           };
+          
+          console.log('GPU Info parsed:', gpuInfo);
+        } else {
+          console.log('GPU Test failed - no valid output');
         }
 
         // Container wird automatisch entfernt (AutoRemove: true)
