@@ -92,11 +92,11 @@ const logger = winston.createLogger({
 const activeSessions = new Map<string, UserSession>();
 const portPool = new Set<number>();
 
-// Initialize port pool (VNC: 8000-8100, Sunshine: 8100-8200)
-for (let i = 8000; i < 8100; i++) {
+// Initialize port pool (VNC: 7500-7600, Sunshine: 7600-7700)
+for (let i = 7500; i < 7600; i++) {
   portPool.add(i);
 }
-for (let i = 8100; i < 8200; i++) {
+for (let i = 7600; i < 7700; i++) {
   portPool.add(i);
 }
 

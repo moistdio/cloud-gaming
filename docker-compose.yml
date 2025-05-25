@@ -97,7 +97,7 @@ services:
       - SERVER_IP=148.251.51.138
     ports:
       - "7003:7003"
-      - "8000-8200:8000-8200" # Port range for user containers
+      - "7500-7700:7500-7700" # Port range for user containers
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Docker socket for container management
     depends_on:
