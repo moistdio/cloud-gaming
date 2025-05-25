@@ -18,5 +18,5 @@ RUN mkdir -p /app/data
 # Port freigeben
 EXPOSE 3001
 
-# Debug-Server starten
-CMD ["node", "debug-server.js"] 
+# Verbesserten Server starten
+CMD ["node", "server-fixed.js"] 
