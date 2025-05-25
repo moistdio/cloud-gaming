@@ -22,8 +22,11 @@ fi
 echo "🔊 Setting up audio for Steam..."
 mkdir -p /var/run/pulse
 chmod 755 /var/run/pulse
-# Start PulseAudio in system mode
-pulseaudio --system --disallow-exit --disallow-module-loading --disable-shm &
+# Create PulseAudio runtime directory for user
+mkdir -p /home/user/.pulse
+chown user:user /home/user/.pulse
+# Start PulseAudio in user mode (safer than system mode)
+sudo -u user pulseaudio --start --log-target=stderr --disable-shm &
 
 # GPU-Initialisierung ausführen
 echo "🎮 Initializing GPU hardware..."
@@ -139,7 +142,7 @@ export __GL_THREADED_OPTIMIZATIONS=1
 # Steam-spezifische Umgebungsvariablen
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam
 export STEAM_COMPAT_DATA_PATH=/home/user/.steam/steam
-export PULSE_RUNTIME_PATH=/var/run/pulse
+export PULSE_RUNTIME_PATH=/home/user/.pulse
 
 # Steam sandbox fallback flags (set during user namespace check)
 if [ ! -z "$STEAM_EXTRA_FLAGS" ]; then
@@ -307,6 +310,7 @@ cleanup() {
     pkill -f monitor_password_changes || true
     
     # Stop PulseAudio
+    sudo -u user pulseaudio --kill || true
     pkill pulseaudio || true
     
     echo "✅ Shutdown complete"
