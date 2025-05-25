@@ -139,19 +139,37 @@ configure_docker_nvidia() {
 test_gpu_container() {
     log_info "Testing GPU access in container..."
     
-    # Teste mit einfachem NVIDIA Container
-    if docker run --rm --gpus all nvidia/cuda:12.2-base-ubuntu22.04 nvidia-smi &> /dev/null; then
-        log_success "GPU access in containers working!"
-        
-        # Zeige GPU-Informationen
-        echo "GPU Information from container:"
-        docker run --rm --gpus all nvidia/cuda:12.2-base-ubuntu22.04 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
-        
-        return 0
-    else
-        log_error "GPU access in containers not working"
-        return 1
+    # Teste mit unserem Cloud Gaming Desktop Image (falls verfügbar)
+    if docker image inspect cloud-gaming-desktop:latest &> /dev/null; then
+        log_info "Testing with cloud-gaming-desktop image..."
+        if docker run --rm --runtime=nvidia cloud-gaming-desktop:latest nvidia-smi &> /dev/null; then
+            log_success "GPU access in containers working!"
+            
+            # Zeige GPU-Informationen
+            echo "GPU Information from container:"
+            docker run --rm --runtime=nvidia cloud-gaming-desktop:latest nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+            
+            return 0
+        fi
     fi
+    
+    # Fallback: Teste mit verfügbaren CUDA Images
+    for cuda_tag in "12.0-base-ubuntu20.04" "11.8-base-ubuntu20.04" "11.7-base-ubuntu20.04"; do
+        log_info "Trying CUDA image: nvidia/cuda:$cuda_tag"
+        if docker run --rm --runtime=nvidia nvidia/cuda:$cuda_tag nvidia-smi &> /dev/null 2>&1; then
+            log_success "GPU access in containers working!"
+            
+            # Zeige GPU-Informationen
+            echo "GPU Information from container:"
+            docker run --rm --runtime=nvidia nvidia/cuda:$cuda_tag nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+            
+            return 0
+        fi
+    done
+    
+    log_error "GPU access in containers not working with any available images"
+    log_warning "But this might just be due to missing CUDA images - GPU may still work"
+    return 1
 }
 
 # Docker Compose für GPU aktualisieren
