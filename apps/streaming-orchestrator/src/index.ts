@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { Server } from 'socket.io';
@@ -9,6 +9,15 @@ import { createClient } from 'redis';
 import winston from 'winston';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+
+// Extend Express Request interface
+declare global {
+  namespace Express {
+    interface Request {
+      user: JWTUser;
+    }
+  }
+}
 
 // Types
 interface UserSession {
@@ -82,7 +91,7 @@ app.use(cors());
 app.use(express.json());
 
 // Auth middleware
-const authenticateToken = (req: any, res: any, next: any) => {
+const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -227,7 +236,7 @@ async function stopUserContainer(sessionId: string): Promise<void> {
 }
 
 // Routes
-app.post('/api/streaming/start', authenticateToken, async (req, res) => {
+app.post('/api/streaming/start', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { gameId, quality = '1080p', fps = 60 } = req.body;
     const userId = req.user.id;
@@ -270,7 +279,7 @@ app.post('/api/streaming/start', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/streaming/stop', authenticateToken, async (req, res) => {
+app.post('/api/streaming/stop', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.body;
     const userId = req.user.id;
@@ -298,7 +307,7 @@ app.post('/api/streaming/stop', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/streaming/sessions', authenticateToken, (req, res) => {
+app.get('/api/streaming/sessions', authenticateToken, (req: Request, res: Response) => {
   const userId = req.user.id;
   const userSessions = Array.from(activeSessions.values())
     .filter(session => session.userId === userId)
@@ -317,7 +326,7 @@ app.get('/api/streaming/sessions', authenticateToken, (req, res) => {
   });
 });
 
-app.get('/api/streaming/status', (req, res) => {
+app.get('/api/streaming/status', (req: Request, res: Response) => {
   res.json({
     success: true,
     activeSessions: activeSessions.size,
