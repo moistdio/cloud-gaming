@@ -9,6 +9,8 @@ const PORT_RANGES = {
 
 const MOONLIGHT_PORTS_PER_USER = 12; // Each user needs 12 consecutive ports for Moonlight
 
+console.log('Port manager module loaded successfully');
+
 /**
  * Clean up instances with invalid port allocations
  */
@@ -73,6 +75,7 @@ export async function cleanupInvalidPortAllocations(): Promise<void> {
   } catch (error) {
     console.error('Error during cleanup of invalid port allocations:', error);
     // Don't throw the error to prevent startup failure
+    throw error; // Re-throw to see the actual error
   }
 }
 
@@ -85,6 +88,8 @@ async function getAllocatedPorts(): Promise<{
   moonlightPortRanges: Array<{ start: number; end: number }>;
 }> {
   try {
+    console.log('Getting allocated ports from database...');
+    
     const instances = await prisma.instance.findMany({
       where: {
         status: { in: ['starting', 'running'] },
@@ -101,6 +106,8 @@ async function getAllocatedPorts(): Promise<{
       }
     });
 
+    console.log(`Found ${instances.length} instances with allocated ports`);
+
     const vncPorts: number[] = [];
     const sunshinePorts: number[] = [];
     const moonlightPortRanges: Array<{ start: number; end: number }> = [];
@@ -114,6 +121,12 @@ async function getAllocatedPorts(): Promise<{
           end: instance.moonlightPortStart + MOONLIGHT_PORTS_PER_USER - 1
         });
       }
+    });
+
+    console.log('Port allocation summary:', { 
+      vncPorts: vncPorts.length, 
+      sunshinePorts: sunshinePorts.length, 
+      moonlightPortRanges: moonlightPortRanges.length 
     });
 
     return { vncPorts, sunshinePorts, moonlightPortRanges };
@@ -202,7 +215,7 @@ export async function allocatePorts(): Promise<{
     };
   } catch (error) {
     console.error('Error during port allocation:', error);
-    return null;
+    throw error; // Re-throw to see the actual error
   }
 }
 
@@ -222,4 +235,6 @@ export function getMoonlightPortMappings(startPort: number): Array<{ host: numbe
   });
   
   return mappings;
-} 
+}
+
+console.log('Port manager module exports defined successfully'); 
