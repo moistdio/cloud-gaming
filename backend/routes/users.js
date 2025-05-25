@@ -214,18 +214,28 @@ router.get('/dashboard-stats', async (req, res) => {
     const isAdmin = req.user.isAdmin;
     const db = getDatabase();
 
-    // Benutzer-spezifische Statistiken
-    const userStats = await new Promise((resolve, reject) => {
+    // Benutzer-spezifische Statistiken - separate Abfragen für korrekte Zählung
+    const userContainerStats = await new Promise((resolve, reject) => {
       db.get(
         `SELECT 
-          COUNT(c.id) as total_containers,
-          SUM(CASE WHEN c.status = 'running' THEN 1 ELSE 0 END) as running_containers,
-          MAX(c.created_at) as last_container_created,
-          COUNT(l.id) as total_actions
-        FROM users u
-        LEFT JOIN containers c ON u.id = c.user_id
-        LEFT JOIN logs l ON u.id = l.user_id
-        WHERE u.id = ?`,
+          COUNT(*) as total_containers,
+          SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running_containers,
+          MAX(created_at) as last_container_created
+        FROM containers 
+        WHERE user_id = ?`,
+        [userId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    const userActionStats = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as total_actions
+        FROM logs 
+        WHERE user_id = ?`,
         [userId],
         (err, row) => {
           if (err) reject(err);
@@ -262,17 +272,9 @@ router.get('/dashboard-stats', async (req, res) => {
     
     // System-weite Statistiken nur für Admins
     if (isAdmin) {
-      systemStats = await new Promise((resolve, reject) => {
+      const systemUserStats = await new Promise((resolve, reject) => {
         db.get(
-          `SELECT 
-            COUNT(DISTINCT u.id) as total_users,
-            COUNT(c.id) as total_containers,
-            SUM(CASE WHEN c.status = 'running' THEN 1 ELSE 0 END) as running_containers,
-            COUNT(l.id) as total_actions,
-            COUNT(DISTINCT DATE(l.created_at)) as active_days
-          FROM users u
-          LEFT JOIN containers c ON u.id = c.user_id
-          LEFT JOIN logs l ON u.id = l.user_id`,
+          `SELECT COUNT(*) as total_users FROM users`,
           [],
           (err, row) => {
             if (err) reject(err);
@@ -281,18 +283,52 @@ router.get('/dashboard-stats', async (req, res) => {
         );
       });
 
-      // Top-Benutzer nach Container-Aktivität
+      const systemContainerStats = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT 
+            COUNT(*) as total_containers,
+            SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running_containers
+          FROM containers`,
+          [],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      const systemActionStats = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT 
+            COUNT(*) as total_actions,
+            COUNT(DISTINCT DATE(created_at)) as active_days
+          FROM logs`,
+          [],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      systemStats = {
+        total_users: systemUserStats.total_users || 0,
+        total_containers: systemContainerStats.total_containers || 0,
+        running_containers: systemContainerStats.running_containers || 0,
+        total_actions: systemActionStats.total_actions || 0,
+        active_days: systemActionStats.active_days || 0
+      };
+
+      // Top-Benutzer nach Container-Aktivität - separate Abfragen
       const topUsers = await new Promise((resolve, reject) => {
         db.all(
           `SELECT 
             u.username,
-            COUNT(c.id) as container_count,
-            COUNT(l.id) as action_count,
-            MAX(l.created_at) as last_activity
+            (SELECT COUNT(*) FROM containers c WHERE c.user_id = u.id) as container_count,
+            (SELECT COUNT(*) FROM logs l WHERE l.user_id = u.id) as action_count,
+            (SELECT MAX(created_at) FROM logs l WHERE l.user_id = u.id) as last_activity
           FROM users u
-          LEFT JOIN containers c ON u.id = c.user_id
-          LEFT JOIN logs l ON u.id = l.user_id
-          GROUP BY u.id, u.username
+          WHERE u.id IN (SELECT DISTINCT user_id FROM logs WHERE user_id IS NOT NULL)
           ORDER BY action_count DESC
           LIMIT 5`,
           [],
@@ -362,10 +398,10 @@ router.get('/dashboard-stats', async (req, res) => {
       user: {
         ...userInfo,
         stats: {
-          totalContainers: userStats.total_containers || 0,
-          runningContainers: userStats.running_containers || 0,
-          lastContainerCreated: userStats.last_container_created,
-          totalActions: userStats.total_actions || 0
+          totalContainers: userContainerStats.total_containers || 0,
+          runningContainers: userContainerStats.running_containers || 0,
+          lastContainerCreated: userContainerStats.last_container_created,
+          totalActions: userActionStats.total_actions || 0
         },
         recentActivities
       },
