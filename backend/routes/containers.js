@@ -192,16 +192,10 @@ router.post('/create', async (req, res) => {
         CpuShares: 1024, // Standard CPU-Anteil
         RestartPolicy: {
           Name: 'unless-stopped'
-        },
-        NetworkMode: 'cloud-gaming_cloud-gaming-network'
+        }
       },
       WorkingDir: '/home/user',
-      User: 'user',
-      NetworkingConfig: {
-        EndpointsConfig: {
-          'cloud-gaming_cloud-gaming-network': {}
-        }
-      }
+      User: 'root'  // Als root starten für Setup
     };
 
     const container = await docker.createContainer(containerConfig);
