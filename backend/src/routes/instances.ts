@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { spawn, ChildProcess } from 'child_process';
 import { prisma } from '../lib/prisma.js';
-import { allocatePorts, getMoonlightPortMappings, cleanupInvalidPortAllocations } from '../utils/portManager.js';
 
 const router = express.Router();
 
@@ -16,6 +15,54 @@ interface Instance {
   moonlightPortStart: number | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Lazy-loaded port manager functions to avoid startup issues
+async function getAllocatedPorts() {
+  try {
+    const { allocatePorts } = await import('../utils/portManager.js');
+    return await allocatePorts();
+  } catch (error) {
+    console.error('Error loading port manager:', error);
+    // Fallback to fixed ports
+    return {
+      vncPort: 7300,
+      sunshinePort: 7000,
+      moonlightPortStart: 10000
+    };
+  }
+}
+
+async function getMoonlightMappings(startPort: number) {
+  try {
+    const { getMoonlightPortMappings } = await import('../utils/portManager.js');
+    return getMoonlightPortMappings(startPort);
+  } catch (error) {
+    console.error('Error loading port manager:', error);
+    // Fallback to fixed mappings
+    const mappings: Array<{ host: number; container: number; protocol: 'tcp' | 'udp' }> = [];
+    const containerPorts = [47989, 47990, 47991, 47992, 47993, 47994, 47995, 47996, 47997, 47998, 47999, 48000];
+    
+    containerPorts.forEach((containerPort, index) => {
+      const hostPort = startPort + index;
+      mappings.push(
+        { host: hostPort, container: containerPort, protocol: 'tcp' },
+        { host: hostPort, container: containerPort, protocol: 'udp' }
+      );
+    });
+    
+    return mappings;
+  }
+}
+
+async function cleanupPorts() {
+  try {
+    const { cleanupInvalidPortAllocations } = await import('../utils/portManager.js');
+    await cleanupInvalidPortAllocations();
+  } catch (error) {
+    console.error('Error loading port manager for cleanup:', error);
+    // Skip cleanup if port manager fails to load
+  }
 }
 
 // Async handler wrapper
@@ -72,10 +119,10 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
     }
 
     // Clean up any invalid port allocations before allocating new ports
-    await cleanupInvalidPortAllocations();
+    await cleanupPorts();
 
     // Allocate ports for this instance
-    const ports = await allocatePorts();
+    const ports = await getAllocatedPorts();
     if (!ports) {
       return res.status(503).json({ error: 'No available ports. Please try again later.' });
     }
@@ -145,7 +192,7 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
           }
 
           // Get Moonlight port mappings
-          const moonlightMappings = getMoonlightPortMappings(ports.moonlightPortStart);
+          const moonlightMappings = await getMoonlightMappings(ports.moonlightPortStart);
           
           // Build Docker run command with dynamic ports
           const dockerArgs = [
