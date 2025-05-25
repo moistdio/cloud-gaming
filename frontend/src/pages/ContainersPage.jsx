@@ -44,7 +44,7 @@ const ContainersPage = () => {
   const [actionLoading, setActionLoading] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
 
   const {
     register,
@@ -475,7 +475,7 @@ const ContainersPage = () => {
             </Grid>
           </Grid>
 
-          {user?.isAdmin && (
+          {isAdmin() && (
             <Alert severity="info" sx={{ mt: 2 }}>
               <Typography variant="body2">
                 <strong>Administrator-Hinweis:</strong> Als Administrator können Sie alle Container-Logs 
