@@ -27,6 +27,9 @@ model Instance {
   user        User     @relation(fields: [userId], references: [id])
   status      String   // starting, running, stopped, error
   containerId String?
+  vncPort     Int?     // Dynamic VNC port for this instance
+  sunshinePort Int?    // Dynamic Sunshine port for this instance
+  moonlightPortStart Int? // Starting port for Moonlight port range
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

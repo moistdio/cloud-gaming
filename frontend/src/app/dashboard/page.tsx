@@ -12,6 +12,9 @@ interface Instance {
   id: string;
   status: string;
   containerId: string | null;
+  vncPort: number | null;
+  sunshinePort: number | null;
+  moonlightPortStart: number | null;
 }
 
 export default function DashboardPage() {
@@ -123,21 +126,22 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {instance?.status === 'running' && (
+        {instance?.status === 'running' && instance.vncPort && instance.sunshinePort && instance.moonlightPortStart && (
           <div className="mt-8 bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg font-medium text-gray-900">Connection Information</h3>
               <div className="mt-4">
                 <p className="text-sm text-gray-500">
-                  Your Steam instance is running. You can connect using either Moonlight or VNC:
+                  Your Steam instance is running with dedicated ports. You can connect using either Moonlight or VNC:
                 </p>
                 <div className="mt-4 space-y-4">
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="text-md font-medium text-gray-900">Moonlight Connection</h4>
+                    <h4 className="text-md font-medium text-gray-900">Moonlight Connection (Recommended)</h4>
                     <ul className="mt-2 list-disc list-inside text-sm text-gray-500">
                       <li>Open Moonlight on your device</li>
                       <li>Add your server&apos;s IP address: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138</span></li>
-                      <li>Connection port: <span className="font-mono bg-gray-100 px-2 py-1 rounded">7600</span></li>
+                      <li>Connection port: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{instance.sunshinePort}</span></li>
+                      <li>Moonlight port range: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{instance.moonlightPortStart}-{instance.moonlightPortStart + 11}</span></li>
                       <li>Select the Steam streaming session</li>
                     </ul>
                   </div>
@@ -145,15 +149,26 @@ export default function DashboardPage() {
                     <h4 className="text-md font-medium text-gray-900">VNC Connection (Alternative)</h4>
                     <ul className="mt-2 list-disc list-inside text-sm text-gray-500">
                       <li>Use any VNC client</li>
-                      <li>Connect to: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138:7300</span></li>
+                      <li>Connect to: <span className="font-mono bg-gray-100 px-2 py-1 rounded">148.251.51.138:{instance.vncPort}</span></li>
                       <li>No password required</li>
                     </ul>
                   </div>
-                  <div className="bg-yellow-50 p-4 rounded-lg">
-                    <h4 className="text-md font-medium text-yellow-800">⚠️ Note</h4>
-                    <p className="mt-1 text-sm text-yellow-700">
-                      For the best gaming experience, we recommend using Moonlight over VNC. VNC is provided as a fallback option for troubleshooting.
-                    </p>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="text-md font-medium text-blue-900">Port Information</h4>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-blue-800">VNC Port:</span>
+                        <span className="ml-2 font-mono bg-blue-100 px-2 py-1 rounded">{instance.vncPort}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-blue-800">Sunshine Port:</span>
+                        <span className="ml-2 font-mono bg-blue-100 px-2 py-1 rounded">{instance.sunshinePort}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-blue-800">Moonlight Range:</span>
+                        <span className="ml-2 font-mono bg-blue-100 px-2 py-1 rounded">{instance.moonlightPortStart}-{instance.moonlightPortStart + 11}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

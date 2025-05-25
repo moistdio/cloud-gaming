@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { spawn, ChildProcess } from 'child_process';
 import { prisma } from '../lib/prisma.js';
+import { allocatePorts, getMoonlightPortMappings } from '../utils/portManager.js';
 
 const router = express.Router();
 
@@ -10,6 +11,9 @@ interface Instance {
   userId: string;
   status: string;
   containerId: string | null;
+  vncPort: number | null;
+  sunshinePort: number | null;
+  moonlightPortStart: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,14 +53,29 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
       return res.status(400).json({ error: 'Instance is already running' });
     }
 
-    // Create or update instance
+    // Allocate ports for this instance
+    const ports = await allocatePorts();
+    if (!ports) {
+      return res.status(503).json({ error: 'No available ports. Please try again later.' });
+    }
+
+    // Create or update instance with allocated ports
     instance = await prisma.instance.upsert({
       where: { userId },
-      update: { status: 'starting', containerId: null },
+      update: { 
+        status: 'starting', 
+        containerId: null,
+        vncPort: ports.vncPort,
+        sunshinePort: ports.sunshinePort,
+        moonlightPortStart: ports.moonlightPortStart
+      },
       create: {
         userId,
         status: 'starting',
         containerId: null,
+        vncPort: ports.vncPort,
+        sunshinePort: ports.sunshinePort,
+        moonlightPortStart: ports.moonlightPortStart
       }
     });
 
@@ -106,8 +125,11 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             });
           }
 
-          // Start new container
-          const startContainer = spawn('docker', [
+          // Get Moonlight port mappings
+          const moonlightMappings = getMoonlightPortMappings(ports.moonlightPortStart);
+          
+          // Build Docker run command with dynamic ports
+          const dockerArgs = [
             'run',
             '-d',
             '--name', containerName,
@@ -117,6 +139,8 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-e', 'NVIDIA_VISIBLE_DEVICES=all',
             '-e', 'NVIDIA_DRIVER_CAPABILITIES=all',
             '-e', 'PULSE_SERVER=unix:/run/user/1000/pulse/native',
+            '-e', `VNC_PORT=${ports.vncPort}`,
+            '-e', `SUNSHINE_PORT=${ports.sunshinePort}`,
             '--group-add', 'input',
             '--device=/dev/input:/dev/input',
             '--device=/dev/nvidia0:/dev/nvidia0',
@@ -127,36 +151,22 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-v', `${containerName}-home:/home/steam`,
             '-v', '/tmp/.X11-unix:/tmp/.X11-unix',
             '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
-            // Map Moonlight TCP ports (7600-7611)
-            '-p', '7600:47989/tcp',
-            '-p', '7601:47990/tcp',
-            '-p', '7602:47991/tcp',
-            '-p', '7603:47992/tcp',
-            '-p', '7604:47993/tcp',
-            '-p', '7605:47994/tcp',
-            '-p', '7606:47995/tcp',
-            '-p', '7607:47996/tcp',
-            '-p', '7608:47997/tcp',
-            '-p', '7609:47998/tcp',
-            '-p', '7610:47999/tcp',
-            '-p', '7611:48000/tcp',
-            // Map Moonlight UDP ports (7600-7611)
-            '-p', '7600:47989/udp',
-            '-p', '7601:47990/udp',
-            '-p', '7602:47991/udp',
-            '-p', '7603:47992/udp',
-            '-p', '7604:47993/udp',
-            '-p', '7605:47994/udp',
-            '-p', '7606:47995/udp',
-            '-p', '7607:47996/udp',
-            '-p', '7608:47997/udp',
-            '-p', '7609:47998/udp',
-            '-p', '7610:47999/udp',
-            '-p', '7611:48000/udp',
-            // VNC port (7300)
-            '-p', '7300:5900',
-            'cloud-gaming-steam'
-          ]);
+            // VNC port mapping
+            '-p', `${ports.vncPort}:${ports.vncPort}`,
+            // Sunshine port mapping
+            '-p', `${ports.sunshinePort}:${ports.sunshinePort}`
+          ];
+
+          // Add Moonlight port mappings
+          moonlightMappings.forEach(mapping => {
+            dockerArgs.push('-p', `${mapping.host}:${mapping.container}/${mapping.protocol}`);
+          });
+
+          // Add the image name
+          dockerArgs.push('cloud-gaming-steam');
+
+          // Start new container
+          const startContainer = spawn('docker', dockerArgs);
 
           let startErrorOutput = '';
           startContainer.stderr.on('data', (data) => {
@@ -322,7 +332,13 @@ router.get('/status', authenticateToken, asyncHandler(async (req: Request, res: 
   const userId = req.user.id;
   const instance = await prisma.instance.findUnique({
     where: { userId },
-    select: { status: true, containerId: true }
+    select: { 
+      status: true, 
+      containerId: true, 
+      vncPort: true, 
+      sunshinePort: true, 
+      moonlightPortStart: true 
+    }
   });
   res.json(instance);
 }));
