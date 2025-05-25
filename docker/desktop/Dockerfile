@@ -167,8 +167,12 @@ RUN echo "Installing Steam directly..." && \
     # Steam über multiverse Repository installieren
     apt-get update && \
     apt-get install -y steam-installer && \
-    # Verifizieren dass Steam installiert ist
-    which steam && \
+    # Steam-Installer akzeptiert automatisch die Lizenz
+    echo steam steam/question select "I AGREE" | debconf-set-selections && \
+    echo steam steam/license note '' | debconf-set-selections && \
+    # Cleanup
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
     echo "Steam installation completed successfully"
 
 # Zusätzliche Steam-Abhängigkeiten für Container-Kompatibilität
