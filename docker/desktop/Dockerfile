@@ -1,11 +1,13 @@
 FROM ubuntu:22.04
 
+# Build-Argumente für Konfiguration
+ARG VNC_PASSWORD=cloudgaming
+
 # Umgebungsvariablen setzen
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1
 ENV VNC_PORT=11000
 ENV WEB_VNC_PORT=12000
-ENV VNC_PASSWORD=cloudgaming
 
 # GPU-spezifische Umgebungsvariablen
 ENV NVIDIA_VISIBLE_DEVICES=all
@@ -100,16 +102,50 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Gaming und Multimedia Software installieren
+# Steam Repository hinzufügen für bessere Kompatibilität
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y software-properties-common && \
+    apt-get update
+
+# Gaming Software installieren (mit Fehlerbehandlung)
 RUN apt-get update && apt-get install -y \
-    # Gaming-Plattformen
-    steam-installer \
+    # Wine und Windows-Kompatibilität
     wine \
     winetricks \
-    # Zusätzliche Gaming-Tools
+    wine32 \
+    wine64 \
+    # Gaming-Tools (verfügbare Pakete)
     gamemode \
-    mangohud \
+    # Zusätzliche Gaming-Abhängigkeiten
+    libc6:i386 \
+    libncurses5:i386 \
+    libstdc++6:i386 \
+    lib32z1 \
+    libbz2-1.0:i386 \
+    lib32asound2 \
+    lib32stdc++6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Multimedia-Codecs separat installieren (non-interactive)
+RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
+    apt-get update && \
+    (apt-get install -y ubuntu-restricted-extras || echo "Restricted extras not available, skipping...") && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Steam manuell installieren (robuster Ansatz)
+RUN cd /tmp && \
+    wget -q https://steamcdn-a.akamaihd.net/client/installer/steam.deb && \
+    dpkg -i steam.deb || apt-get install -f -y && \
+    rm steam.deb || true
+
+# MangoHud separat installieren (falls verfügbar)
+RUN apt-get update && \
+    (apt-get install -y mangohud || echo "MangoHud not available, skipping...") && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Vulkan Support installieren
 RUN apt-get update && apt-get install -y \
@@ -194,10 +230,17 @@ RUN apt-get update && apt-get install -y \
     # 3D-Test-Anwendungen
     glmark2 \
     mesa-demos \
-    # Gaming-Plattformen
-    lutris \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Lutris separat installieren (mit PPA für neueste Version)
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    (add-apt-repository ppa:lutris-team/lutris -y || echo "Lutris PPA not available") && \
+    apt-get update && \
+    (apt-get install -y lutris || echo "Lutris not available, skipping...") && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # X11-Konfiguration für GPU-Beschleunigung
 RUN mkdir -p /etc/X11/xorg.conf.d && \
@@ -219,6 +262,9 @@ RUN chmod +x /usr/local/bin/gpu-init.sh
 # Startup-Script kopieren
 COPY start-desktop.sh /usr/local/bin/start-desktop.sh
 RUN chmod +x /usr/local/bin/start-desktop.sh
+
+# VNC-Passwort als Umgebungsvariable setzen (zur Laufzeit)
+ENV VNC_PASSWORD=${VNC_PASSWORD}
 
 # Port-Bereiche freigeben (VNC: 11000-11430, Web: 12000-12430)
 EXPOSE 11000-11430 12000-12430
