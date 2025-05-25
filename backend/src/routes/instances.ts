@@ -82,12 +82,18 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
       where: { userId },
       update: { 
         status: 'starting', 
-        containerId: null
+        containerId: null,
+        vncPort: ports.vncPort,
+        sunshinePort: ports.sunshinePort,
+        moonlightPortStart: ports.moonlightPortStart
       },
       create: {
         userId,
         status: 'starting',
-        containerId: null
+        containerId: null,
+        vncPort: ports.vncPort,
+        sunshinePort: ports.sunshinePort,
+        moonlightPortStart: ports.moonlightPortStart
       }
     });
 
@@ -135,12 +141,10 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             });
           }
 
-          // Use fixed ports temporarily until schema is updated
-          const vncPort = 7300;
-          const sunshinePort = 7000;
-          const moonlightPortStart = 10000;
+          // Get Moonlight port mappings
+          const moonlightMappings = getMoonlightPortMappings(ports.moonlightPortStart);
           
-          // Build Docker run command with fixed ports
+          // Build Docker run command with dynamic ports
           const dockerArgs = [
             'run',
             '-d',
@@ -151,8 +155,8 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-e', 'NVIDIA_VISIBLE_DEVICES=all',
             '-e', 'NVIDIA_DRIVER_CAPABILITIES=all',
             '-e', 'PULSE_SERVER=unix:/run/user/1000/pulse/native',
-            '-e', `VNC_PORT=${vncPort}`,
-            '-e', `SUNSHINE_PORT=${sunshinePort}`,
+            '-e', `VNC_PORT=${ports.vncPort}`,
+            '-e', `SUNSHINE_PORT=${ports.sunshinePort}`,
             '--group-add', 'input',
             '--device=/dev/input:/dev/input',
             '--device=/dev/nvidia0:/dev/nvidia0',
@@ -164,36 +168,18 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
             '-v', '/tmp/.X11-unix:/tmp/.X11-unix',
             '-v', '/run/user/1000/pulse:/run/user/1000/pulse',
             // VNC port mapping
-            '-p', `${vncPort}:${vncPort}`,
+            '-p', `${ports.vncPort}:${ports.vncPort}`,
             // Sunshine port mapping
-            '-p', `${sunshinePort}:${sunshinePort}`,
-            // Moonlight port mappings (fixed range)
-            '-p', '10000:47989/tcp',
-            '-p', '10001:47990/tcp',
-            '-p', '10002:47991/tcp',
-            '-p', '10003:47992/tcp',
-            '-p', '10004:47993/tcp',
-            '-p', '10005:47994/tcp',
-            '-p', '10006:47995/tcp',
-            '-p', '10007:47996/tcp',
-            '-p', '10008:47997/tcp',
-            '-p', '10009:47998/tcp',
-            '-p', '10010:47999/tcp',
-            '-p', '10011:48000/tcp',
-            '-p', '10000:47989/udp',
-            '-p', '10001:47990/udp',
-            '-p', '10002:47991/udp',
-            '-p', '10003:47992/udp',
-            '-p', '10004:47993/udp',
-            '-p', '10005:47994/udp',
-            '-p', '10006:47995/udp',
-            '-p', '10007:47996/udp',
-            '-p', '10008:47997/udp',
-            '-p', '10009:47998/udp',
-            '-p', '10010:47999/udp',
-            '-p', '10011:48000/udp',
-            'cloud-gaming-steam'
+            '-p', `${ports.sunshinePort}:${ports.sunshinePort}`
           ];
+
+          // Add Moonlight port mappings
+          moonlightMappings.forEach(mapping => {
+            dockerArgs.push('-p', `${mapping.host}:${mapping.container}/${mapping.protocol}`);
+          });
+
+          // Add the image name
+          dockerArgs.push('cloud-gaming-steam');
 
           // Start new container
           const startContainer = spawn('docker', dockerArgs);
@@ -364,22 +350,13 @@ router.get('/status', authenticateToken, asyncHandler(async (req: Request, res: 
     where: { userId },
     select: { 
       status: true, 
-      containerId: true
+      containerId: true, 
+      vncPort: true, 
+      sunshinePort: true, 
+      moonlightPortStart: true 
     }
   });
-  
-  // Add fixed port information temporarily
-  if (instance) {
-    const instanceWithPorts = {
-      ...instance,
-      vncPort: 7300,
-      sunshinePort: 7000,
-      moonlightPortStart: 10000
-    };
-    res.json(instanceWithPorts);
-  } else {
-    res.json(instance);
-  }
+  res.json(instance);
 }));
 
 export default router; 

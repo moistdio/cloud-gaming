@@ -13,9 +13,67 @@ const MOONLIGHT_PORTS_PER_USER = 12; // Each user needs 12 consecutive ports for
  * Clean up instances with invalid port allocations
  */
 export async function cleanupInvalidPortAllocations(): Promise<void> {
-  // Temporarily disabled to prevent startup issues
-  console.log('Port cleanup temporarily disabled until schema is updated');
-  return;
+  try {
+    console.log('Starting cleanup of invalid port allocations...');
+    
+    // Find instances with ports outside our valid ranges
+    const invalidInstances = await prisma.instance.findMany({
+      where: {
+        OR: [
+          {
+            vncPort: {
+              OR: [
+                { lt: PORT_RANGES.VNC.start },
+                { gt: PORT_RANGES.VNC.end }
+              ]
+            }
+          },
+          {
+            sunshinePort: {
+              OR: [
+                { lt: PORT_RANGES.SUNSHINE.start },
+                { gt: PORT_RANGES.SUNSHINE.end }
+              ]
+            }
+          },
+          {
+            moonlightPortStart: {
+              OR: [
+                { lt: PORT_RANGES.MOONLIGHT.start },
+                { gt: PORT_RANGES.MOONLIGHT.end - MOONLIGHT_PORTS_PER_USER }
+              ]
+            }
+          }
+        ]
+      }
+    });
+
+    console.log(`Found ${invalidInstances.length} instances with invalid port allocations`);
+
+    // Reset port allocations for invalid instances
+    for (const instance of invalidInstances) {
+      try {
+        await prisma.instance.update({
+          where: { id: instance.id },
+          data: {
+            vncPort: null,
+            sunshinePort: null,
+            moonlightPortStart: null,
+            status: 'stopped'
+          }
+        });
+        console.log(`Reset port allocation for instance ${instance.id}`);
+      } catch (updateError) {
+        console.error(`Failed to reset instance ${instance.id}:`, updateError);
+        // Continue with other instances even if one fails
+      }
+    }
+    
+    console.log('Cleanup of invalid port allocations completed');
+  } catch (error) {
+    console.error('Error during cleanup of invalid port allocations:', error);
+    // Don't throw the error to prevent startup failure
+  }
 }
 
 /**
@@ -26,9 +84,47 @@ async function getAllocatedPorts(): Promise<{
   sunshinePorts: number[];
   moonlightPortRanges: Array<{ start: number; end: number }>;
 }> {
-  // Temporarily return empty arrays until schema is updated
-  console.log('Port allocation temporarily using fallback until schema is updated');
-  return { vncPorts: [], sunshinePorts: [], moonlightPortRanges: [] };
+  try {
+    // First clean up any invalid allocations
+    await cleanupInvalidPortAllocations();
+
+    const instances = await prisma.instance.findMany({
+      where: {
+        status: { in: ['starting', 'running'] },
+        OR: [
+          { vncPort: { not: null } },
+          { sunshinePort: { not: null } },
+          { moonlightPortStart: { not: null } }
+        ]
+      },
+      select: {
+        vncPort: true,
+        sunshinePort: true,
+        moonlightPortStart: true
+      }
+    });
+
+    const vncPorts: number[] = [];
+    const sunshinePorts: number[] = [];
+    const moonlightPortRanges: Array<{ start: number; end: number }> = [];
+
+    instances.forEach((instance: { vncPort: number | null; sunshinePort: number | null; moonlightPortStart: number | null }) => {
+      if (instance.vncPort) vncPorts.push(instance.vncPort);
+      if (instance.sunshinePort) sunshinePorts.push(instance.sunshinePort);
+      if (instance.moonlightPortStart) {
+        moonlightPortRanges.push({
+          start: instance.moonlightPortStart,
+          end: instance.moonlightPortStart + MOONLIGHT_PORTS_PER_USER - 1
+        });
+      }
+    });
+
+    return { vncPorts, sunshinePorts, moonlightPortRanges };
+  } catch (error) {
+    console.error('Error getting allocated ports:', error);
+    // Return empty arrays as fallback
+    return { vncPorts: [], sunshinePorts: [], moonlightPortRanges: [] };
+  }
 }
 
 /**
