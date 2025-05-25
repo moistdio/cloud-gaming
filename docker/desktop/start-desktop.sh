@@ -26,11 +26,13 @@ if ! id -u user >/dev/null 2>&1; then
     echo "👤 Creating user..."
     useradd -m -u $USER_ID -s /bin/bash user
     echo "user:$VNC_PASSWORD" | chpasswd
+    # Benutzer zur sudo-Gruppe hinzufügen
+    usermod -aG sudo user
 fi
 
 # VNC-Verzeichnis erstellen
 mkdir -p /home/user/.vnc
-chown user:user /home/user/.vnc
+chown -R user:user /home/user/.vnc
 
 # VNC-Passwort setzen
 echo "🔐 Setting VNC password..."
@@ -58,9 +60,14 @@ EOF
 chmod +x /home/user/.vnc/xstartup
 chown user:user /home/user/.vnc/xstartup
 
-# VNC-Server starten
+# VNC-Server starten (als root, dann ownership ändern)
 echo "🚀 Starting VNC Server on port $VNC_PORT..."
-su - user -c "vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -localhost no"
+
+# Zuerst alle bestehenden VNC-Server stoppen
+vncserver -kill $DISPLAY 2>/dev/null || true
+
+# VNC-Server als user starten mit sudo
+sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -localhost no
 
 # noVNC Web-Interface starten
 echo "🌐 Starting noVNC Web Interface on port $WEB_VNC_PORT..."
@@ -128,7 +135,7 @@ cleanup() {
     echo "🛑 Shutting down Cloud Gaming Desktop..."
     
     # VNC-Server stoppen
-    su - user -c "vncserver -kill $DISPLAY" || true
+    sudo -u user HOME=/home/user vncserver -kill $DISPLAY || true
     
     # noVNC stoppen
     pkill -f novnc_proxy || true
@@ -150,7 +157,7 @@ while true; do
         # VNC-Server neu starten falls nötig
         if ! netstat -ln | grep -q ":$VNC_PORT "; then
             echo "🔄 Restarting VNC Server..."
-            su - user -c "vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -localhost no"
+            sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -localhost no
         fi
         
         # noVNC neu starten falls nötig

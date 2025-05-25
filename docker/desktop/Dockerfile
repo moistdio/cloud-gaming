@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
     xfce4-terminal \
     # VNC-Server
     tightvncserver \
+    # System-Tools
+    sudo \
     # Netzwerk-Tools
     net-tools \
     curl \
