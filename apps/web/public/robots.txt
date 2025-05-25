@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-
-# CloudStream Gaming Platform
-# https://cloudstream.local 

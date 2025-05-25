@@ -1,205 +1,267 @@
-# CloudStream Setup Guide
+# Cloud Gaming System - Setup Anleitung
 
-## 🚀 Quick Start
+## Überblick
 
-### Prerequisites
-1. **Docker Desktop** - Download and install from [docker.com](https://www.docker.com/products/docker-desktop/)
-2. **Git** (optional) - For cloning the repository
-3. **16GB+ RAM** recommended
-4. **GPU with drivers** (optional, for game streaming)
+Dieses System ermöglicht es Benutzern, eigene Docker-Container mit VNC-Zugang zu virtuellen Ubuntu-Desktops zu erstellen und zu verwalten. Perfekt für headless Server!
 
-### Step 1: Start Docker Desktop
-- Install and start Docker Desktop
-- Wait for the whale icon in system tray to be stable
-- Verify Docker is running: `docker --version`
+## Voraussetzungen
 
-### Step 2: Quick Setup (Windows)
+- Docker und Docker Compose installiert
+- Mindestens 4GB RAM verfügbar
+- Ports 3000, 3001, 5900-5950, 6080-6130 verfügbar
+
+## Installation
+
+### 1. Desktop-Image erstellen
+
+Zuerst muss das Ubuntu Desktop Docker-Image erstellt werden:
+
+**Windows:**
 ```powershell
-# Navigate to project directory
-cd C:\Users\Diony\Documents\cloud-gaming
-
-# Run the setup script
-.\scripts\setup.bat
+.\build-desktop-image.ps1
 ```
 
-### Step 3: Manual Setup (Alternative)
-```powershell
-# Create environment file
-copy env.example .env
+**Linux/Mac:**
+```bash
+./build-desktop-image.sh
+```
 
-# Build all containers
-docker-compose build
+### 2. System starten
 
-# Start all services
+```bash
 docker-compose up -d
-
-# Check status
-docker-compose ps
 ```
 
-## 📋 Access URLs
+### 3. Zugriff
 
-Once running, access these URLs:
+- **Web-Interface**: http://localhost:3000
+- **Backend-API**: http://localhost:3001
+- **VNC-Proxy**: http://localhost:8080
 
-- **Web Interface**: http://localhost:3000
-- **API**: http://localhost:3001
-- **API Health**: http://localhost:3001/health
-- **Monitoring (Grafana)**: http://localhost:3002
-- **Prometheus**: http://localhost:9090
-- **VNC (Streaming Debug)**: localhost:5900
+## Erste Schritte
 
-## 👤 Default Accounts
+### 1. Benutzer registrieren
 
-- **Admin**: admin@cloudstream.local / admin123
-- **Demo**: demo@cloudstream.local / demo123
+1. Öffne http://localhost:3000
+2. Klicke auf "Jetzt registrieren"
+3. Erstelle einen Account
 
-## 🐳 Docker Services
+### 2. Container erstellen
 
-| Service | Port | Description |
-|---------|------|-------------|
-| web | 3000 | Next.js frontend |
-| api | 3001 | Express.js backend |
-| postgres | 5432 | PostgreSQL database |
-| redis | 6379 | Redis cache |
-| streaming | 47989, 5900 | Game streaming (simplified) |
-| nginx | 80, 443 | Reverse proxy |
-| grafana | 3002 | Monitoring dashboard |
-| prometheus | 9090 | Metrics collection |
-| node-exporter | 9100 | System metrics |
+1. Melde dich an
+2. Gehe zum Dashboard
+3. Klicke auf "Container erstellen"
+4. Warte bis der Container bereit ist
 
-## 🔧 Configuration
+### 3. Desktop zugreifen
 
-### Environment Variables (.env)
+Nach der Container-Erstellung erhältst du:
+- **VNC-URL**: `vnc://localhost:5901` (oder höher)
+- **Web-VNC**: `http://localhost:6081` (oder höher)
+
+## VNC-Zugriff
+
+### Option 1: Web-Browser
+- Öffne die Web-VNC-URL direkt im Browser
+- Kein zusätzlicher Client erforderlich
+
+### Option 2: VNC-Client
+Empfohlene VNC-Clients:
+- **Windows**: TightVNC, RealVNC
+- **Mac**: Screen Sharing, RealVNC
+- **Linux**: Remmina, TigerVNC
+
+## Architektur
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │    Backend      │    │  Desktop        │
+│   (React)       │◄──►│   (Node.js)     │◄──►│  Container      │
+│   Port: 3000    │    │   Port: 3001    │    │  VNC: 5901+     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │    Database     │
+                    │    (SQLite)     │
+                    └─────────────────┘
+```
+
+## Komponenten
+
+### Backend (Node.js/Express)
+- **Authentifizierung**: JWT-basiert
+- **Container-Management**: Docker API
+- **Datenbank**: SQLite
+- **Logging**: Winston
+
+### Frontend (React)
+- **UI-Framework**: Material-UI
+- **State Management**: React Query
+- **Routing**: React Router
+- **Build-Tool**: Vite
+
+### Desktop-Container (Ubuntu)
+- **Desktop**: XFCE4
+- **VNC-Server**: TightVNC
+- **Web-VNC**: noVNC + websockify
+- **Browser**: Firefox
+- **Office**: LibreOffice
+
+## Konfiguration
+
+### Umgebungsvariablen
+
+Erstelle eine `.env` Datei im Hauptverzeichnis:
+
 ```env
-# Database
-DATABASE_URL="postgresql://cloudstream:cloudstream123@localhost:5432/cloudstream"
+# Backend
+NODE_ENV=production
+JWT_SECRET=your-super-secret-jwt-key-change-this
+DB_PATH=/app/data/database.sqlite
+CORS_ORIGIN=http://localhost:3000
 
-# Redis
-REDIS_URL="redis://:cloudstream123@localhost:6379"
+# Container-Limits
+MAX_CONTAINERS_PER_USER=3
+VNC_PORT_START=5900
+WEB_VNC_PORT_START=6080
 
-# Steam API (get from steamcommunity.com/dev/apikey)
-STEAM_API_KEY="your-steam-api-key"
-
-# Security
-JWT_SECRET="your-super-secret-jwt-key"
+# Logging
+LOG_LEVEL=info
 ```
 
-### GPU Support (Advanced)
-To enable full GPU streaming, edit `docker-compose.yml`:
-1. Change `dockerfile: docker/streaming/Dockerfile.simple` to `dockerfile: docker/streaming/Dockerfile`
-2. Uncomment GPU-related sections
-3. Install NVIDIA Container Toolkit
+### Port-Konfiguration
 
-## 🛠️ Troubleshooting
+Das System verwendet dynamische Port-Zuweisung:
+- **VNC-Ports**: 5900-5950 (50 Container möglich)
+- **Web-VNC-Ports**: 6080-6130 (50 Container möglich)
 
-### Docker Not Running
-```powershell
-# Check Docker status
-docker --version
-docker ps
+## Sicherheit
 
-# If not working:
-# 1. Start Docker Desktop application
-# 2. Wait for it to fully initialize
-# 3. Try again
+### Authentifizierung
+- JWT-Token mit 24h Gültigkeit
+- Sichere Session-Verwaltung
+- Passwort-Hashing mit bcrypt
+
+### Container-Isolation
+- Jeder Benutzer hat eigene Container
+- Ressourcen-Limits (2GB RAM, CPU-Shares)
+- Netzwerk-Isolation
+
+### VNC-Sicherheit
+- Zufällige VNC-Passwörter
+- Port-basierte Isolation
+- Nur lokaler Zugriff standardmäßig
+
+## Troubleshooting
+
+### Container startet nicht
+```bash
+# Logs prüfen
+docker-compose logs backend
+
+# Container-Status prüfen
+docker ps -a
 ```
 
-### Build Failures
-```powershell
-# Clean rebuild
-docker-compose down
-docker system prune -f
-docker-compose build --no-cache
-docker-compose up -d
+### VNC-Verbindung fehlschlägt
+```bash
+# Port-Verfügbarkeit prüfen
+netstat -an | grep 590
+
+# Container-Logs prüfen
+docker logs <container-id>
 ```
 
-### Port Conflicts
-```powershell
-# Check what's using ports
-netstat -ano | findstr :3000
-netstat -ano | findstr :3001
+### Frontend lädt nicht
+```bash
+# Frontend-Logs prüfen
+docker-compose logs frontend
 
-# Stop conflicting services or change ports in docker-compose.yml
+# Backend-Erreichbarkeit testen
+curl http://localhost:3001/health
 ```
 
-### Container Logs
-```powershell
-# View logs for specific service
-docker-compose logs api
-docker-compose logs web
-docker-compose logs streaming
+## Entwicklung
 
-# Follow logs in real-time
+### Backend entwickeln
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+### Frontend entwickeln
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Desktop-Image anpassen
+```bash
+# Image neu bauen nach Änderungen
+docker build -t cloud-gaming-desktop:latest docker/desktop/
+```
+
+## Monitoring
+
+### Logs einsehen
+```bash
+# Alle Services
 docker-compose logs -f
+
+# Nur Backend
+docker-compose logs -f backend
+
+# Nur Frontend
+docker-compose logs -f frontend
 ```
 
-## 📊 Monitoring
+### Ressourcen-Überwachung
+```bash
+# Container-Ressourcen
+docker stats
 
-### Grafana Dashboard
-1. Go to http://localhost:3002
-2. Login: admin / admin123
-3. Navigate to CloudStream dashboard
-4. Monitor system performance and streaming metrics
-
-### Prometheus Metrics
-1. Go to http://localhost:9090
-2. Query metrics like:
-   - `cloudstream_api_status`
-   - `cloudstream_active_sessions_total`
-   - `node_cpu_seconds_total`
-
-## 🎮 Gaming Setup
-
-### Steam Integration
-1. Get Steam API key from https://steamcommunity.com/dev/apikey
-2. Add to `.env` file: `STEAM_API_KEY="your-key"`
-3. Restart services: `docker-compose restart`
-
-### Streaming Quality
-Edit `docker-compose.yml` streaming service environment:
-```yaml
-environment:
-  - STREAMING_QUALITY=1080p  # 720p, 1080p, 1440p, 4K
-  - STREAMING_FPS=60         # 30, 60, 90, 120
+# System-Ressourcen
+htop
 ```
 
-## 🔄 Updates
+## Backup
 
-### Updating CloudStream
-```powershell
-# Pull latest changes
-git pull
-
-# Rebuild containers
-docker-compose build
-docker-compose up -d
+### Datenbank sichern
+```bash
+# SQLite-Datei kopieren
+cp ./data/database.sqlite ./backup/database-$(date +%Y%m%d).sqlite
 ```
 
-### Database Migrations
-```powershell
-# Run migrations
-docker-compose exec api npm run db:migrate
-
-# Seed sample data
-docker-compose exec api npm run db:seed
+### Container-Daten sichern
+```bash
+# Volume-Backup
+docker run --rm -v cloud-gaming_user-data:/data -v $(pwd)/backup:/backup alpine tar czf /backup/user-data-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
-## 🆘 Support
+## Skalierung
 
-### Logs Location
-- Application logs: `./logs/`
-- Docker logs: `docker-compose logs [service]`
+### Horizontale Skalierung
+- Load Balancer vor Frontend
+- Mehrere Backend-Instanzen
+- Shared Database (PostgreSQL)
 
-### Common Issues
-1. **Port 3000 in use**: Change web service port in docker-compose.yml
-2. **Database connection failed**: Ensure PostgreSQL is healthy
-3. **Streaming not working**: Check VNC on port 5900 for debugging
+### Vertikale Skalierung
+- Mehr RAM für Container
+- Mehr CPU-Cores
+- SSD-Storage für bessere Performance
 
-### Getting Help
-1. Check logs: `docker-compose logs`
-2. Verify all services: `docker-compose ps`
-3. Test individual services: `docker-compose up [service]`
+## Support
 
----
+Bei Problemen:
+1. Logs prüfen (`docker-compose logs`)
+2. Container-Status prüfen (`docker ps`)
+3. Port-Konflikte prüfen (`netstat -an`)
+4. Ressourcen prüfen (`docker stats`)
 
-**CloudStream** - Your personal cloud gaming platform! 🎮☁️ 
+## Lizenz
+
+MIT License - Siehe LICENSE-Datei für Details. 
