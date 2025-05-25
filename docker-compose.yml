@@ -86,18 +86,14 @@ services:
       - cloudstream-network
     restart: unless-stopped
 
-  # Streaming Service
+  # Streaming Service (Simplified)
   streaming:
     build:
       context: .
-      dockerfile: docker/streaming/Dockerfile
+      dockerfile: docker/streaming/Dockerfile.simple
     container_name: cloudstream-streaming
-    privileged: true
     environment:
       - DISPLAY=:0
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - SUNSHINE_PORT=47989
       - STREAMING_QUALITY=1080p
       - STREAMING_FPS=60
     ports:
@@ -108,18 +104,9 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ./docker/streaming/config:/config
       - steam_data:/home/steam
-    devices:
-      - /dev/dri:/dev/dri
     networks:
       - cloudstream-network
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   # NGINX Reverse Proxy
   nginx:
@@ -166,7 +153,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
-      - "3001:3000"
+      - "3002:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards

@@ -18,13 +18,15 @@ RUN apt-get update && apt-get install -y \
     pulseaudio \
     alsa-utils \
     mesa-utils \
-    vulkan-utils \
     vainfo \
     vdpauinfo \
-    nvidia-utils-525 \
-    libnvidia-encode-525 \
-    steam-installer \
     && rm -rf /var/lib/apt/lists/*
+
+# Add multiverse repository for steam
+RUN add-apt-repository multiverse && \
+    apt-get update && \
+    apt-get install -y steam-installer && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Sunshine
 RUN wget -O sunshine.deb https://github.com/LizardByte/Sunshine/releases/latest/download/sunshine-ubuntu-22.04-amd64.deb \
