@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y \
     xfce4-terminal \
     # VNC-Server
     tightvncserver \
+    x11vnc \
     # X11 und Fonts
     xfonts-base \
     xfonts-75dpi \

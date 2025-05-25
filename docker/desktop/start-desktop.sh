@@ -141,7 +141,9 @@ chown user:user /home/user/.vnc/xstartup
 # VNC-Server starten (als root, dann ownership ändern)
 echo "🚀 Starting VNC Server on port $VNC_PORT..."
 
-# Zuerst alle bestehenden VNC-Server stoppen
+# Stop any existing X servers and VNC processes
+pkill -f "Xvfb $DISPLAY" 2>/dev/null || true
+pkill -f "x11vnc.*$VNC_PORT" 2>/dev/null || true
 vncserver -kill $DISPLAY 2>/dev/null || true
 
 # VNC-Server als user starten mit GPU-Unterstützung
@@ -178,8 +180,20 @@ Section "Extensions"
 EndSection
 EOF
 
-# VNC-Server mit GPU-Unterstützung starten
-sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
+# Start Xvfb with GLX support for GPU acceleration
+echo "🚀 Starting Xvfb with GLX support..."
+Xvfb $DISPLAY -screen 0 1920x1080x24 +extension GLX +extension RENDER +extension RANDR &
+XVFB_PID=$!
+
+# Wait for Xvfb to start
+sleep 2
+
+# Start window manager as user
+sudo -u user DISPLAY=$DISPLAY /home/user/.vnc/xstartup &
+
+# Start x11vnc to provide VNC access to the Xvfb display
+echo "🚀 Starting x11vnc on port $VNC_PORT..."
+x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -bg
 
 # noVNC Web-Interface starten
 echo "🌐 Starting noVNC Web Interface on port $WEB_VNC_PORT..."
@@ -251,13 +265,17 @@ log_services &
 cleanup() {
     echo "🛑 Shutting down Cloud Gaming Desktop..."
     
-    # VNC-Server stoppen
+    # Stop Xvfb and x11vnc
+    pkill -f "Xvfb $DISPLAY" || true
+    pkill -f "x11vnc.*$VNC_PORT" || true
+    
+    # Stop legacy VNC server (if any)
     sudo -u user HOME=/home/user vncserver -kill $DISPLAY || true
     
-    # noVNC stoppen
+    # Stop noVNC
     pkill -f novnc_proxy || true
     
-    # Passwort-Monitor stoppen
+    # Stop password monitor
     pkill -f monitor_password_changes || true
     
     echo "✅ Shutdown complete"
@@ -274,10 +292,22 @@ while true; do
     if ! health_check; then
         echo "⚠️ Service check failed, attempting restart..."
         
-        # VNC-Server neu starten falls nötig
+        # Restart X server and VNC if needed
         if ! netstat -ln | grep -q ":$VNC_PORT "; then
-            echo "🔄 Restarting VNC Server..."
-            sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
+            echo "🔄 Restarting X server and VNC..."
+            # Stop any existing processes
+            pkill -f "Xvfb $DISPLAY" || true
+            pkill -f "x11vnc.*$VNC_PORT" || true
+            
+            # Start Xvfb with GLX support
+            Xvfb $DISPLAY -screen 0 1920x1080x24 +extension GLX +extension RENDER +extension RANDR &
+            sleep 2
+            
+            # Start window manager
+            sudo -u user DISPLAY=$DISPLAY /home/user/.vnc/xstartup &
+            
+            # Start x11vnc
+            x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -bg
         fi
         
         # noVNC neu starten falls nötig
