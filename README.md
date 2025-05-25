@@ -63,9 +63,20 @@ Ein vollständiges Cloud-Gaming und Remote-Desktop-System mit **GPU-Beschleunigu
 - **Mindestens 8GB RAM** (für GPU-Workloads)
 - **Linux/Windows mit WSL2**
 
-### 1. NVIDIA Container Runtime installieren
+### 1. GPU-Setup (Automatisch)
 
-**Ubuntu/Debian:**
+**Linux/WSL2:**
+```bash
+chmod +x setup-gpu.sh
+./setup-gpu.sh
+```
+
+**Windows:**
+```powershell
+.\setup-gpu.ps1
+```
+
+**Manuell (Ubuntu/Debian):**
 ```bash
 # NVIDIA Container Toolkit installieren
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
