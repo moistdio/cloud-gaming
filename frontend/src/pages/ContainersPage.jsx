@@ -73,14 +73,48 @@ const ContainersPage = () => {
 
   // Passwort in Zwischenablage kopieren
   const copyPasswordToClipboard = async () => {
-    if (container?.vncPassword) {
-      try {
+    if (!container?.vncPassword) {
+      toast.error('Kein Passwort verfügbar')
+      return
+    }
+
+    try {
+      // Moderne Clipboard API (bevorzugt)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(container.vncPassword)
         toast.success('Passwort in Zwischenablage kopiert!')
-      } catch (error) {
-        console.error('Fehler beim Kopieren:', error)
-        toast.error('Passwort konnte nicht kopiert werden')
+        return
       }
+
+      // Fallback für ältere Browser
+      const textArea = document.createElement('textarea')
+      textArea.value = container.vncPassword
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      
+      if (successful) {
+        toast.success('Passwort in Zwischenablage kopiert!')
+      } else {
+        throw new Error('execCommand failed')
+      }
+    } catch (error) {
+      console.error('Fehler beim Kopieren:', error)
+      
+      // Als letzter Ausweg: Passwort in einem Alert anzeigen
+      const password = container.vncPassword
+      if (window.prompt) {
+        window.prompt('Passwort kopieren (Strg+C):', password)
+      } else {
+        alert(`VNC-Passwort: ${password}`)
+      }
+      toast.info('Passwort wurde angezeigt - bitte manuell kopieren')
     }
   }
 
