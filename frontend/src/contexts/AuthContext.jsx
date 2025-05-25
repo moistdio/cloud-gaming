@@ -162,13 +162,13 @@ export const AuthProvider = ({ children }) => {
 
   // Admin-Prüfung
   const isAdmin = () => {
-    return user?.isAdmin === true
+    return Boolean(user?.isAdmin)
   }
 
   // Benutzer-Rolle abrufen
   const getUserRole = () => {
     if (!user) return 'guest'
-    return user.isAdmin ? 'admin' : 'user'
+    return Boolean(user.isAdmin) ? 'admin' : 'user'
   }
 
   // Berechtigung prüfen
@@ -177,7 +177,7 @@ export const AuthProvider = ({ children }) => {
     
     switch (permission) {
       case 'admin':
-        return user.isAdmin
+        return Boolean(user.isAdmin)
       case 'user':
         return true
       case 'container.create':
@@ -185,9 +185,9 @@ export const AuthProvider = ({ children }) => {
       case 'container.manage':
         return true
       case 'admin.users':
-        return user.isAdmin
+        return Boolean(user.isAdmin)
       case 'admin.system':
-        return user.isAdmin
+        return Boolean(user.isAdmin)
       default:
         return false
     }
