@@ -336,8 +336,9 @@ RUN mkdir -p /etc/X11/xorg.conf.d && \
     Option "UseDisplayDevice" "None"\n\
 EndSection' > /etc/X11/xorg.conf.d/10-nvidia.conf
 
-# Steam Desktop-Shortcut erstellen
+# Desktop-Shortcuts erstellen
 RUN mkdir -p /home/user/Desktop && \
+    # Steam Desktop-Shortcut
     echo '[Desktop Entry]' > /home/user/Desktop/Steam.desktop && \
     echo 'Version=1.0' >> /home/user/Desktop/Steam.desktop && \
     echo 'Type=Application' >> /home/user/Desktop/Steam.desktop && \
@@ -348,7 +349,17 @@ RUN mkdir -p /home/user/Desktop && \
     echo 'Terminal=false' >> /home/user/Desktop/Steam.desktop && \
     echo 'Categories=Game;' >> /home/user/Desktop/Steam.desktop && \
     echo 'StartupNotify=true' >> /home/user/Desktop/Steam.desktop && \
-    echo 'MimeType=x-scheme-handler/steam;' >> /home/user/Desktop/Steam.desktop
+    echo 'MimeType=x-scheme-handler/steam;' >> /home/user/Desktop/Steam.desktop && \
+    # Vulkan Test Desktop-Shortcut
+    echo '[Desktop Entry]' > /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Version=1.0' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Type=Application' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Name=Vulkan Test' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Comment=Test Vulkan configuration and drivers' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Exec=xfce4-terminal --hold -e test-vulkan.sh' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Icon=applications-system' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Terminal=false' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    echo 'Categories=System;HardwareSettings;' >> /home/user/Desktop/Vulkan-Test.desktop
 
 # Berechtigungen setzen
 RUN chown -R user:user /home/user/.config && \
@@ -358,6 +369,10 @@ RUN chown -R user:user /home/user/.config && \
 # GPU-Initialisierungs-Script erstellen
 COPY gpu-init.sh /usr/local/bin/gpu-init.sh
 RUN chmod +x /usr/local/bin/gpu-init.sh
+
+# Vulkan-Test-Script kopieren
+COPY test-vulkan.sh /usr/local/bin/test-vulkan.sh
+RUN chmod +x /usr/local/bin/test-vulkan.sh
 
 # Steam-Wrapper-Script kopieren
 COPY steam-wrapper.sh /usr/local/bin/steam-wrapper.sh

@@ -190,8 +190,8 @@ if [ ! -z "$STEAM_EXTRA_FLAGS" ]; then
     export STEAM_EXTRA_FLAGS="$STEAM_EXTRA_FLAGS"
 fi
 
-# Vulkan-Support
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+# Vulkan-Support (enhanced for better compatibility)
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/intel_icd.x86_64.json
 export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 
