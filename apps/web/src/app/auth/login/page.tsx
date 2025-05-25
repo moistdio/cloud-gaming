@@ -11,12 +11,22 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  const getApiUrl = () => {
+    // Use the current hostname with port 7001 for API
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      return `http://${hostname}:7001`;
+    }
+    return 'http://148.251.51.138:7001'; // fallback
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,6 +121,10 @@ export default function LoginPage() {
               <div>Admin: admin@cloudstream.local / admin123</div>
               <div>Demo: demo@cloudstream.local / demo123</div>
             </div>
+          </div>
+
+          <div className="mt-2 text-xs text-gray-500 text-center">
+            API: {typeof window !== 'undefined' ? `${window.location.hostname}:7001` : '148.251.51.138:7001'}
           </div>
         </div>
 
