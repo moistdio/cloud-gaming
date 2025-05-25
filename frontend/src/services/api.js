@@ -106,6 +106,10 @@ export const userAPI = {
   getProfile: () =>
     api.get('/users/profile'),
   
+  // Dashboard-Statistiken abrufen
+  getDashboardStats: () =>
+    api.get('/users/dashboard-stats'),
+  
   // Aktivitätslogs abrufen
   getLogs: (limit = 50, offset = 0) =>
     api.get(`/users/logs?limit=${limit}&offset=${offset}`),

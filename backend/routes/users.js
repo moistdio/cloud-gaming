@@ -207,4 +207,189 @@ router.delete('/sessions', async (req, res) => {
   }
 });
 
+// Dashboard-Statistiken abrufen
+router.get('/dashboard-stats', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const isAdmin = req.user.isAdmin;
+    const db = getDatabase();
+
+    // Benutzer-spezifische Statistiken
+    const userStats = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT 
+          COUNT(c.id) as total_containers,
+          SUM(CASE WHEN c.status = 'running' THEN 1 ELSE 0 END) as running_containers,
+          MAX(c.created_at) as last_container_created,
+          COUNT(l.id) as total_actions
+        FROM users u
+        LEFT JOIN containers c ON u.id = c.user_id
+        LEFT JOIN logs l ON u.id = l.user_id
+        WHERE u.id = ?`,
+        [userId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Benutzer-Informationen
+    const userInfo = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT username, email, created_at, last_login, is_admin FROM users WHERE id = ?',
+        [userId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Letzte Aktivitäten des Benutzers
+    const recentActivities = await new Promise((resolve, reject) => {
+      db.all(
+        'SELECT action, details, created_at FROM logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
+        [userId],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+
+    let systemStats = null;
+    
+    // System-weite Statistiken nur für Admins
+    if (isAdmin) {
+      systemStats = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT 
+            COUNT(DISTINCT u.id) as total_users,
+            COUNT(c.id) as total_containers,
+            SUM(CASE WHEN c.status = 'running' THEN 1 ELSE 0 END) as running_containers,
+            COUNT(l.id) as total_actions,
+            COUNT(DISTINCT DATE(l.created_at)) as active_days
+          FROM users u
+          LEFT JOIN containers c ON u.id = c.user_id
+          LEFT JOIN logs l ON u.id = l.user_id`,
+          [],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      // Top-Benutzer nach Container-Aktivität
+      const topUsers = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT 
+            u.username,
+            COUNT(c.id) as container_count,
+            COUNT(l.id) as action_count,
+            MAX(l.created_at) as last_activity
+          FROM users u
+          LEFT JOIN containers c ON u.id = c.user_id
+          LEFT JOIN logs l ON u.id = l.user_id
+          GROUP BY u.id, u.username
+          ORDER BY action_count DESC
+          LIMIT 5`,
+          [],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      });
+
+      // Container-Status-Verteilung
+      const containerStatusDistribution = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT 
+            status,
+            COUNT(*) as count
+          FROM containers
+          GROUP BY status`,
+          [],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      });
+
+      // Aktivitäten der letzten 7 Tage
+      const weeklyActivity = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT 
+            DATE(created_at) as date,
+            COUNT(*) as actions
+          FROM logs
+          WHERE created_at >= datetime('now', '-7 days')
+          GROUP BY DATE(created_at)
+          ORDER BY date DESC`,
+          [],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      });
+
+      systemStats.topUsers = topUsers;
+      systemStats.containerStatusDistribution = containerStatusDistribution;
+      systemStats.weeklyActivity = weeklyActivity;
+    }
+
+    // Port-Nutzung berechnen
+    const portUsage = await new Promise((resolve, reject) => {
+      db.all(
+        'SELECT vnc_port, web_vnc_port FROM containers WHERE status = "running"',
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+
+    const usedPorts = portUsage.length;
+    const maxPorts = 430; // 11000-11430
+    const portUtilization = Math.round((usedPorts / maxPorts) * 100);
+
+    res.json({
+      user: {
+        ...userInfo,
+        stats: {
+          totalContainers: userStats.total_containers || 0,
+          runningContainers: userStats.running_containers || 0,
+          lastContainerCreated: userStats.last_container_created,
+          totalActions: userStats.total_actions || 0
+        },
+        recentActivities
+      },
+      system: systemStats,
+      resources: {
+        portUtilization,
+        usedPorts,
+        maxPorts,
+        availablePorts: maxPorts - usedPorts
+      },
+      serverInfo: {
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        nodeVersion: process.version,
+        platform: process.platform
+      }
+    });
+
+  } catch (error) {
+    console.error('Dashboard-Statistiken-Fehler:', error);
+    res.status(500).json({
+      error: 'Dashboard-Statistiken konnten nicht abgerufen werden'
+    });
+  }
+});
+
 module.exports = router; 
