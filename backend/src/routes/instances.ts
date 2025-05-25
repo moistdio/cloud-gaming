@@ -44,9 +44,6 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
   
   let instance;
   try {
-    // Clean up any invalid port allocations first
-    await cleanupInvalidPortAllocations();
-
     // Check if instance exists
     instance = await prisma.instance.findUnique({
       where: { userId }

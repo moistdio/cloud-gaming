@@ -14,6 +14,16 @@ const MOONLIGHT_PORTS_PER_USER = 12; // Each user needs 12 consecutive ports for
  */
 export async function cleanupInvalidPortAllocations(): Promise<void> {
   try {
+    console.log('Starting cleanup of invalid port allocations...');
+    
+    // First check if the port fields exist in the database
+    try {
+      await prisma.$queryRaw`SELECT vncPort, sunshinePort, moonlightPortStart FROM "Instance" LIMIT 1`;
+    } catch (schemaError) {
+      console.log('Port fields do not exist in database schema yet, skipping cleanup');
+      return;
+    }
+    
     // Find instances with ports outside our valid ranges
     const invalidInstances = await prisma.instance.findMany({
       where: {
@@ -46,21 +56,31 @@ export async function cleanupInvalidPortAllocations(): Promise<void> {
       }
     });
 
+    console.log(`Found ${invalidInstances.length} instances with invalid port allocations`);
+
     // Reset port allocations for invalid instances
     for (const instance of invalidInstances) {
-      await prisma.instance.update({
-        where: { id: instance.id },
-        data: {
-          vncPort: null,
-          sunshinePort: null,
-          moonlightPortStart: null,
-          status: 'stopped'
-        }
-      });
-      console.log(`Reset port allocation for instance ${instance.id}`);
+      try {
+        await prisma.instance.update({
+          where: { id: instance.id },
+          data: {
+            vncPort: null,
+            sunshinePort: null,
+            moonlightPortStart: null,
+            status: 'stopped'
+          }
+        });
+        console.log(`Reset port allocation for instance ${instance.id}`);
+      } catch (updateError) {
+        console.error(`Failed to reset instance ${instance.id}:`, updateError);
+        // Continue with other instances even if one fails
+      }
     }
+    
+    console.log('Cleanup of invalid port allocations completed');
   } catch (error) {
-    console.error('Error cleaning up invalid port allocations:', error);
+    console.error('Error during cleanup of invalid port allocations:', error);
+    // Don't throw the error to prevent startup failure
   }
 }
 
@@ -72,41 +92,55 @@ async function getAllocatedPorts(): Promise<{
   sunshinePorts: number[];
   moonlightPortRanges: Array<{ start: number; end: number }>;
 }> {
-  // First clean up any invalid allocations
-  await cleanupInvalidPortAllocations();
+  try {
+    // First clean up any invalid allocations
+    await cleanupInvalidPortAllocations();
 
-  const instances = await prisma.instance.findMany({
-    where: {
-      status: { in: ['starting', 'running'] },
-      OR: [
-        { vncPort: { not: null } },
-        { sunshinePort: { not: null } },
-        { moonlightPortStart: { not: null } }
-      ]
-    },
-    select: {
-      vncPort: true,
-      sunshinePort: true,
-      moonlightPortStart: true
+    // Check if port fields exist in the database
+    try {
+      await prisma.$queryRaw`SELECT vncPort, sunshinePort, moonlightPortStart FROM "Instance" LIMIT 1`;
+    } catch (schemaError) {
+      console.log('Port fields do not exist in database schema yet, returning empty port allocations');
+      return { vncPorts: [], sunshinePorts: [], moonlightPortRanges: [] };
     }
-  });
 
-  const vncPorts: number[] = [];
-  const sunshinePorts: number[] = [];
-  const moonlightPortRanges: Array<{ start: number; end: number }> = [];
+    const instances = await prisma.instance.findMany({
+      where: {
+        status: { in: ['starting', 'running'] },
+        OR: [
+          { vncPort: { not: null } },
+          { sunshinePort: { not: null } },
+          { moonlightPortStart: { not: null } }
+        ]
+      },
+      select: {
+        vncPort: true,
+        sunshinePort: true,
+        moonlightPortStart: true
+      }
+    });
 
-  instances.forEach((instance: { vncPort: number | null; sunshinePort: number | null; moonlightPortStart: number | null }) => {
-    if (instance.vncPort) vncPorts.push(instance.vncPort);
-    if (instance.sunshinePort) sunshinePorts.push(instance.sunshinePort);
-    if (instance.moonlightPortStart) {
-      moonlightPortRanges.push({
-        start: instance.moonlightPortStart,
-        end: instance.moonlightPortStart + MOONLIGHT_PORTS_PER_USER - 1
-      });
-    }
-  });
+    const vncPorts: number[] = [];
+    const sunshinePorts: number[] = [];
+    const moonlightPortRanges: Array<{ start: number; end: number }> = [];
 
-  return { vncPorts, sunshinePorts, moonlightPortRanges };
+    instances.forEach((instance: { vncPort: number | null; sunshinePort: number | null; moonlightPortStart: number | null }) => {
+      if (instance.vncPort) vncPorts.push(instance.vncPort);
+      if (instance.sunshinePort) sunshinePorts.push(instance.sunshinePort);
+      if (instance.moonlightPortStart) {
+        moonlightPortRanges.push({
+          start: instance.moonlightPortStart,
+          end: instance.moonlightPortStart + MOONLIGHT_PORTS_PER_USER - 1
+        });
+      }
+    });
+
+    return { vncPorts, sunshinePorts, moonlightPortRanges };
+  } catch (error) {
+    console.error('Error getting allocated ports:', error);
+    // Return empty arrays as fallback
+    return { vncPorts: [], sunshinePorts: [], moonlightPortRanges: [] };
+  }
 }
 
 /**
@@ -153,34 +187,42 @@ export async function allocatePorts(): Promise<{
   sunshinePort: number;
   moonlightPortStart: number;
 } | null> {
-  const allocated = await getAllocatedPorts();
-  
-  // Find available VNC port
-  const vncPort = findAvailablePort(
-    PORT_RANGES.VNC.start,
-    PORT_RANGES.VNC.end,
-    allocated.vncPorts
-  );
-  
-  // Find available Sunshine port
-  const sunshinePort = findAvailablePort(
-    PORT_RANGES.SUNSHINE.start,
-    PORT_RANGES.SUNSHINE.end,
-    allocated.sunshinePorts
-  );
-  
-  // Find available Moonlight port range
-  const moonlightPortStart = findAvailableMoonlightPortRange(allocated.moonlightPortRanges);
-  
-  if (!vncPort || !sunshinePort || !moonlightPortStart) {
-    return null; // No available ports
+  try {
+    console.log('Starting port allocation...');
+    const allocated = await getAllocatedPorts();
+    
+    // Find available VNC port
+    const vncPort = findAvailablePort(
+      PORT_RANGES.VNC.start,
+      PORT_RANGES.VNC.end,
+      allocated.vncPorts
+    );
+    
+    // Find available Sunshine port
+    const sunshinePort = findAvailablePort(
+      PORT_RANGES.SUNSHINE.start,
+      PORT_RANGES.SUNSHINE.end,
+      allocated.sunshinePorts
+    );
+    
+    // Find available Moonlight port range
+    const moonlightPortStart = findAvailableMoonlightPortRange(allocated.moonlightPortRanges);
+    
+    if (!vncPort || !sunshinePort || !moonlightPortStart) {
+      console.error('No available ports found', { vncPort, sunshinePort, moonlightPortStart });
+      return null; // No available ports
+    }
+    
+    console.log('Port allocation successful:', { vncPort, sunshinePort, moonlightPortStart });
+    return {
+      vncPort,
+      sunshinePort,
+      moonlightPortStart
+    };
+  } catch (error) {
+    console.error('Error during port allocation:', error);
+    return null;
   }
-  
-  return {
-    vncPort,
-    sunshinePort,
-    moonlightPortStart
-  };
 }
 
 /**
