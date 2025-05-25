@@ -30,19 +30,6 @@ services:
     networks:
       - cloud-gaming-network
 
-  # nginx Proxy für VNC-Verbindungen
-  nginx-proxy:
-    image: nginx:alpine
-    container_name: cloud-gaming-proxy
-    ports:
-      - "8080:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/conf.d:/etc/nginx/conf.d
-    restart: unless-stopped
-    networks:
-      - cloud-gaming-network
-
 networks:
   cloud-gaming-network:
     driver: bridge
