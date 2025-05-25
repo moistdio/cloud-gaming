@@ -291,6 +291,8 @@ EOF
             "/usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1"
             "/usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia"
             "/usr/lib/nvidia/libGL.so.1"
+            "/usr/local/nvidia/lib64/libGL.so.1"
+            "/usr/lib/x86_64-linux-gnu/libnvidia-gl-535/libGL.so.1"
         )
         
         NVIDIA_GLX_FOUND=""
@@ -312,12 +314,6 @@ EOF
             # Verlinke NVIDIA GLX
             ln -sf "$NVIDIA_GLX_FOUND" /usr/lib/x86_64-linux-gnu/libGL.so.1
             
-            # Auch für 32-bit falls vorhanden
-            NVIDIA_GLX_32="${NVIDIA_GLX_FOUND/x86_64-linux-gnu/i386-linux-gnu}"
-            if [ -f "$NVIDIA_GLX_32" ]; then
-                ln -sf "$NVIDIA_GLX_32" /usr/lib/i386-linux-gnu/libGL.so.1 2>/dev/null || true
-            fi
-            
             # LD-Cache aktualisieren
             ldconfig
             
@@ -328,7 +324,18 @@ EOF
             # Prüfe ob NVIDIA-Treiber verfügbar sind
             if command -v nvidia-smi &> /dev/null; then
                 log_info "NVIDIA driver available, but GLX libraries missing"
-                log_info "This might be resolved by installing libnvidia-gl packages"
+                
+                # Versuche NVIDIA-Bibliotheken zu finden
+                log_info "Searching for NVIDIA libraries..."
+                find /usr -name "*nvidia*" -name "*.so*" 2>/dev/null | grep -E "(libGL|libEGL)" | head -5 || true
+                
+                # Prüfe ob libnvidia-gl installiert ist
+                if dpkg -l | grep -q libnvidia-gl; then
+                    log_info "libnvidia-gl packages are installed"
+                    dpkg -l | grep libnvidia-gl
+                else
+                    log_info "libnvidia-gl packages not found"
+                fi
             fi
             
             log_warning "Using Mesa fallback for OpenGL"
