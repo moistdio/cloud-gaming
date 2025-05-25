@@ -34,38 +34,69 @@ log_error() {
 detect_gpu() {
     log_info "Detecting GPU hardware..."
     
-    # NVIDIA GPU prüfen
-    if command -v nvidia-smi &> /dev/null; then
-        log_info "NVIDIA GPU detected, checking status..."
+    # Prüfe zuerst auf GPU-Devices im System
+    if [ -d "/dev/dri" ] || [ -c "/dev/nvidia0" ] || [ -c "/dev/nvidiactl" ]; then
+        log_info "GPU devices found in /dev"
         
-        if nvidia-smi &> /dev/null; then
-            log_success "NVIDIA GPU is accessible"
+        # NVIDIA GPU prüfen
+        if [ -c "/dev/nvidia0" ] || [ -c "/dev/nvidiactl" ]; then
+            log_info "NVIDIA GPU devices detected"
             
-            # GPU-Informationen anzeigen
-            echo "📊 GPU Information:"
-            nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits | while read line; do
-                echo "  • $line"
-            done
-            
-            # CUDA-Version prüfen
-            if command -v nvcc &> /dev/null; then
-                CUDA_VERSION=$(nvcc --version | grep "release" | awk '{print $6}' | cut -c2-)
-                log_success "CUDA $CUDA_VERSION available"
+            # Prüfe ob nvidia-smi verfügbar ist
+            if command -v nvidia-smi &> /dev/null; then
+                log_info "nvidia-smi available, checking GPU status..."
+                
+                if nvidia-smi &> /dev/null; then
+                    log_success "NVIDIA GPU is accessible"
+                    
+                    # GPU-Informationen anzeigen
+                    echo "📊 GPU Information:"
+                    nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits 2>/dev/null | while read line; do
+                        echo "  • $line"
+                    done
+                    
+                    # CUDA-Version prüfen
+                    if command -v nvcc &> /dev/null; then
+                        CUDA_VERSION=$(nvcc --version 2>/dev/null | grep "release" | awk '{print $6}' | cut -c2-)
+                        if [ ! -z "$CUDA_VERSION" ]; then
+                            log_success "CUDA $CUDA_VERSION available"
+                        fi
+                    fi
+                    
+                    return 0
+                else
+                    log_warning "NVIDIA GPU detected but nvidia-smi not accessible"
+                    log_info "GPU may still be available for applications"
+                    return 0
+                fi
+            else
+                log_warning "NVIDIA devices found but nvidia-smi not available"
+                log_info "GPU may still be accessible through direct device access"
+                return 0
             fi
-            
-            return 0
-        else
-            log_error "NVIDIA GPU detected but not accessible"
-            return 1
         fi
-    else
-        log_warning "No NVIDIA GPU detected, checking for other GPUs..."
         
         # Intel/AMD GPU prüfen
-        if lspci | grep -i "vga\|3d\|display" &> /dev/null; then
-            log_info "Alternative GPU detected:"
-            lspci | grep -i "vga\|3d\|display"
-            return 0
+        if [ -d "/dev/dri" ]; then
+            log_info "DRI devices found, checking for integrated GPU..."
+            if lspci 2>/dev/null | grep -i "vga\|3d\|display" &> /dev/null; then
+                log_success "Integrated GPU detected:"
+                lspci 2>/dev/null | grep -i "vga\|3d\|display" | head -3
+                return 0
+            fi
+        fi
+        
+        log_success "GPU devices available"
+        return 0
+    else
+        log_warning "No GPU devices found in /dev"
+        
+        # Fallback: Prüfe mit lspci
+        if command -v lspci &> /dev/null && lspci 2>/dev/null | grep -i "vga\|3d\|display" &> /dev/null; then
+            log_info "GPU hardware detected via lspci:"
+            lspci 2>/dev/null | grep -i "vga\|3d\|display"
+            log_warning "But no device files found - may need driver installation"
+            return 1
         else
             log_error "No GPU hardware detected"
             return 1
@@ -241,35 +272,69 @@ install_monitoring_tools() {
     # Desktop-Shortcuts für GPU-Tools erstellen
     mkdir -p /home/user/Desktop
     
-    # GPU-Monitor-Shortcut
-    cat > /home/user/Desktop/GPU-Monitor.desktop << EOF
+    # GPU-Monitor-Shortcut (nur wenn nvidia-smi verfügbar)
+    if command -v nvidia-smi &> /dev/null; then
+        cat > /home/user/Desktop/GPU-Monitor.desktop << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=GPU Monitor
-Comment=Monitor GPU performance and usage
-Exec=gnome-terminal -- watch -n 1 nvidia-smi
+Name=GPU Monitor (NVIDIA)
+Comment=Monitor NVIDIA GPU performance and usage
+Exec=xfce4-terminal --hold -e "watch -n 1 nvidia-smi"
 Icon=utilities-system-monitor
 Terminal=false
 Categories=System;Monitor;
 EOF
+    fi
+    
+    # nvtop-Shortcut (falls verfügbar)
+    if command -v nvtop &> /dev/null; then
+        cat > /home/user/Desktop/GPU-Monitor-nvtop.desktop << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GPU Monitor (nvtop)
+Comment=Interactive GPU monitoring with nvtop
+Exec=xfce4-terminal --hold -e nvtop
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;
+EOF
+    fi
     
     # GPU-Benchmark-Shortcut
-    cat > /home/user/Desktop/GPU-Benchmark.desktop << EOF
+    if command -v glmark2 &> /dev/null; then
+        cat > /home/user/Desktop/GPU-Benchmark.desktop << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=GPU Benchmark
 Comment=Test GPU performance with glmark2
-Exec=gnome-terminal -- glmark2
+Exec=xfce4-terminal --hold -e glmark2
 Icon=applications-games
 Terminal=false
 Categories=System;Benchmark;
 EOF
+    fi
+    
+    # OpenGL-Info-Shortcut
+    cat > /home/user/Desktop/GPU-Info.desktop << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GPU Information
+Comment=Display OpenGL and GPU information
+Exec=xfce4-terminal --hold -e "bash -c 'echo GPU Information:; echo; if command -v nvidia-smi >/dev/null 2>&1; then echo NVIDIA GPU:; nvidia-smi; echo; fi; echo OpenGL Info:; glxinfo | grep -E \"OpenGL (vendor|renderer|version)\"; echo; echo Vulkan Info:; vulkaninfo --summary 2>/dev/null || echo Vulkan not available; read -p Press Enter to close...'"
+Icon=applications-system
+Terminal=false
+Categories=System;HardwareSettings;
+EOF
     
     # Berechtigungen setzen
-    chmod +x /home/user/Desktop/*.desktop
-    chown -R user:user /home/user/Desktop
+    if [ -d "/home/user/Desktop" ]; then
+        chmod +x /home/user/Desktop/*.desktop 2>/dev/null || true
+        chown -R user:user /home/user/Desktop 2>/dev/null || true
+    fi
     
     log_success "GPU monitoring tools installed"
 }

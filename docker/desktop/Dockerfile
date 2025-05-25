@@ -64,13 +64,6 @@ RUN apt-get update && apt-get install -y \
     # Zusätzliche Pakete
     fonts-liberation \
     fonts-dejavu \
-    # GPU Monitoring Tools
-    nvidia-smi \
-    nvtop \
-    # Gaming und Multimedia
-    steam-installer \
-    wine \
-    winetricks \
     # Hardware-beschleunigte Video-Codecs
     vainfo \
     vdpauinfo \
@@ -101,6 +94,20 @@ RUN apt-get update && apt-get install -y \
     libnvidia-gl-535 \
     libnvidia-encode-535 \
     libnvidia-decode-535 \
+    # GPU Monitoring Tools (jetzt verfügbar)
+    nvtop \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Gaming und Multimedia Software installieren
+RUN apt-get update && apt-get install -y \
+    # Gaming-Plattformen
+    steam-installer \
+    wine \
+    winetricks \
+    # Zusätzliche Gaming-Tools
+    gamemode \
+    mangohud \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -187,8 +194,6 @@ RUN apt-get update && apt-get install -y \
     # 3D-Test-Anwendungen
     glmark2 \
     mesa-demos \
-    # Benchmark-Tools
-    unigine-heaven \
     # Gaming-Plattformen
     lutris \
     && apt-get clean \
