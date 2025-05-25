@@ -117,14 +117,22 @@ RUN apt-get update && apt-get install -y \
     wine64 \
     # Gaming-Tools (verfügbare Pakete)
     gamemode \
-    # Zusätzliche Gaming-Abhängigkeiten
+    # Zusätzliche Gaming-Abhängigkeiten (korrigierte Paketnamen)
     libc6:i386 \
     libncurses5:i386 \
     libstdc++6:i386 \
     lib32z1 \
     libbz2-1.0:i386 \
-    lib32asound2 \
+    libasound2:i386 \
     lib32stdc++6 \
+    # Zusätzliche Wine-Abhängigkeiten
+    libfreetype6:i386 \
+    libfontconfig1:i386 \
+    libxrender1:i386 \
+    libxrandr2:i386 \
+    libxfixes3:i386 \
+    libxcomposite1:i386 \
+    libxdamage1:i386 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
