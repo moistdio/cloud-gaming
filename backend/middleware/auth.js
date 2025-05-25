@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const { getDatabase } = require('../database/init');
-const logger = require('../utils/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-this';
 
@@ -23,7 +22,7 @@ async function authenticateToken(req, res, next) {
     const db = getDatabase();
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, email, is_active FROM users WHERE id = ?',
+        'SELECT id, username, email, is_active, is_admin FROM users WHERE id = ?',
         [decoded.userId],
         (err, row) => {
           if (err) reject(err);
@@ -50,7 +49,8 @@ async function authenticateToken(req, res, next) {
     req.user = {
       userId: user.id,
       username: user.username,
-      email: user.email
+      email: user.email,
+      isAdmin: user.is_admin
     };
 
     next();
@@ -70,7 +70,7 @@ async function authenticateToken(req, res, next) {
       });
     }
 
-    logger.error('Authentifizierungsfehler:', error);
+    console.error('Authentifizierungsfehler:', error);
     res.status(500).json({
       error: 'Authentifizierung fehlgeschlagen',
       message: 'Interner Serverfehler'
@@ -78,14 +78,10 @@ async function authenticateToken(req, res, next) {
   }
 }
 
-// Optional: Middleware für Admin-Berechtigung
+// Middleware für Admin-Berechtigung
 async function requireAdmin(req, res, next) {
   try {
-    // Hier könnten wir eine Admin-Rolle aus der Datenbank prüfen
-    // Für jetzt nehmen wir an, dass bestimmte Benutzernamen Admins sind
-    const adminUsers = ['admin', 'administrator', 'root'];
-    
-    if (!adminUsers.includes(req.user.username)) {
+    if (!req.user.isAdmin) {
       return res.status(403).json({
         error: 'Zugriff verweigert',
         message: 'Administrator-Berechtigung erforderlich'
@@ -95,14 +91,18 @@ async function requireAdmin(req, res, next) {
     next();
 
   } catch (error) {
-    logger.error('Admin-Berechtigungsfehler:', error);
+    console.error('Admin-Berechtigungsfehler:', error);
     res.status(500).json({
       error: 'Berechtigungsprüfung fehlgeschlagen'
     });
   }
 }
 
+// Export für Container-Route
+const authMiddleware = authenticateToken;
+
 module.exports = {
   authenticateToken,
-  requireAdmin
+  requireAdmin,
+  authMiddleware
 }; 

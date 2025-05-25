@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { getDatabase, checkFirstUserAdmin } = require('../database/init');
-const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
@@ -46,6 +45,8 @@ router.post('/register', validateRegistration, async (req, res) => {
     const { username, email, password } = req.body;
     const db = getDatabase();
 
+    console.log(`Registrierungsversuch: ${username} (${email})`);
+
     // Prüfen ob Benutzer bereits existiert
     const existingUser = await new Promise((resolve, reject) => {
       db.get(
@@ -59,6 +60,7 @@ router.post('/register', validateRegistration, async (req, res) => {
     });
 
     if (existingUser) {
+      console.log(`Registrierung fehlgeschlagen - Benutzer existiert bereits: ${username}`);
       return res.status(409).json({
         error: 'Benutzer existiert bereits',
         message: 'Benutzername oder E-Mail bereits vergeben'
@@ -84,7 +86,7 @@ router.post('/register', validateRegistration, async (req, res) => {
     // Prüfen ob dies der erste Benutzer ist und ihn zum Admin machen
     const isFirstUser = await checkFirstUserAdmin(userId);
 
-    logger.info(`Neuer Benutzer registriert: ${username} (ID: ${userId})${isFirstUser ? ' - ADMINISTRATOR' : ''}`);
+    console.log(`Neuer Benutzer registriert: ${username} (ID: ${userId})${isFirstUser ? ' - ADMINISTRATOR' : ''}`);
 
     // Log erstellen
     await new Promise((resolve, reject) => {
@@ -109,7 +111,7 @@ router.post('/register', validateRegistration, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Registrierungsfehler:', error);
+    console.error('Registrierungsfehler:', error);
     res.status(500).json({
       error: 'Registrierung fehlgeschlagen',
       message: 'Interner Serverfehler'
@@ -131,6 +133,8 @@ router.post('/login', validateLogin, async (req, res) => {
     const { username, password } = req.body;
     const db = getDatabase();
 
+    console.log(`Login-Versuch: ${username}`);
+
     // Benutzer finden
     const user = await new Promise((resolve, reject) => {
       db.get(
@@ -144,6 +148,7 @@ router.post('/login', validateLogin, async (req, res) => {
     });
 
     if (!user) {
+      console.log(`Login fehlgeschlagen - Benutzer nicht gefunden: ${username}`);
       return res.status(401).json({
         error: 'Anmeldung fehlgeschlagen',
         message: 'Ungültige Anmeldedaten'
@@ -151,6 +156,7 @@ router.post('/login', validateLogin, async (req, res) => {
     }
 
     if (!user.is_active) {
+      console.log(`Login fehlgeschlagen - Konto deaktiviert: ${username}`);
       return res.status(403).json({
         error: 'Konto deaktiviert',
         message: 'Ihr Konto wurde deaktiviert'
@@ -160,6 +166,7 @@ router.post('/login', validateLogin, async (req, res) => {
     // Passwort prüfen
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
+      console.log(`Login fehlgeschlagen - Falsches Passwort: ${username}`);
       return res.status(401).json({
         error: 'Anmeldung fehlgeschlagen',
         message: 'Ungültige Anmeldedaten'
@@ -204,8 +211,6 @@ router.post('/login', validateLogin, async (req, res) => {
       );
     });
 
-    logger.info(`Benutzer angemeldet: ${user.username} (ID: ${user.id})${user.is_admin ? ' - ADMIN' : ''}`);
-
     // Log erstellen
     await new Promise((resolve, reject) => {
       db.run(
@@ -218,10 +223,11 @@ router.post('/login', validateLogin, async (req, res) => {
       );
     });
 
+    console.log(`Erfolgreicher Login: ${user.username} (ID: ${user.id})`);
+
     res.json({
       message: 'Anmeldung erfolgreich',
       token,
-      sessionToken,
       user: {
         id: user.id,
         username: user.username,
@@ -231,7 +237,7 @@ router.post('/login', validateLogin, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Login-Fehler:', error);
+    console.error('Login-Fehler:', error);
     res.status(500).json({
       error: 'Anmeldung fehlgeschlagen',
       message: 'Interner Serverfehler'
@@ -242,31 +248,51 @@ router.post('/login', validateLogin, async (req, res) => {
 // Logout
 router.post('/logout', async (req, res) => {
   try {
-    const sessionToken = req.headers['x-session-token'];
-    
-    if (sessionToken) {
-      const db = getDatabase();
-      
-      // Session löschen
-      await new Promise((resolve, reject) => {
-        db.run(
-          'DELETE FROM sessions WHERE session_token = ?',
-          [sessionToken],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Kein Token bereitgestellt'
       });
     }
 
-    res.json({ message: 'Erfolgreich abgemeldet' });
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const db = getDatabase();
+
+    // Session löschen
+    await new Promise((resolve, reject) => {
+      db.run(
+        'DELETE FROM sessions WHERE user_id = ?',
+        [decoded.userId],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    // Log erstellen
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+        [decoded.userId, 'USER_LOGOUT', `Benutzer ${decoded.username} abgemeldet`, req.ip],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    console.log(`Benutzer abgemeldet: ${decoded.username}`);
+
+    res.json({
+      message: 'Erfolgreich abgemeldet'
+    });
 
   } catch (error) {
-    logger.error('Logout-Fehler:', error);
+    console.error('Logout-Fehler:', error);
     res.status(500).json({
-      error: 'Abmeldung fehlgeschlagen',
-      message: 'Interner Serverfehler'
+      error: 'Abmeldung fehlgeschlagen'
     });
   }
 });
@@ -320,7 +346,7 @@ router.get('/validate', async (req, res) => {
       });
     }
 
-    logger.error('Token-Validierungsfehler:', error);
+    console.error('Token-Validierungsfehler:', error);
     res.status(500).json({
       error: 'Token-Validierung fehlgeschlagen'
     });

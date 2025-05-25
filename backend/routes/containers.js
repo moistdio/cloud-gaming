@@ -2,7 +2,6 @@ const express = require('express');
 const Docker = require('dockerode');
 const { getDatabase } = require('../database/init');
 const authMiddleware = require('../middleware/auth');
-const logger = require('../utils/logger');
 
 const router = express.Router();
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -67,6 +66,8 @@ router.get('/', async (req, res) => {
     const userId = req.user.userId;
     const db = getDatabase();
 
+    console.log(`Abrufen Container für Benutzer ${userId}`);
+
     // Container des Benutzers abrufen
     const container = await new Promise((resolve, reject) => {
       db.get(
@@ -80,11 +81,14 @@ router.get('/', async (req, res) => {
     });
 
     if (!container) {
+      console.log(`Kein Container für Benutzer ${userId} gefunden`);
       return res.json({
         container: null,
         message: 'Kein Container vorhanden'
       });
     }
+
+    console.log(`Container gefunden für Benutzer ${userId}:`, container);
 
     // Aktuellen Container-Status prüfen
     const status = await getContainerStatus(container.container_id);
@@ -117,7 +121,7 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Fehler beim Abrufen der Container:', error);
+    console.error('Fehler beim Abrufen der Container:', error);
     res.status(500).json({
       error: 'Container konnten nicht abgerufen werden'
     });
@@ -130,6 +134,8 @@ router.post('/create', async (req, res) => {
     const userId = req.user.userId;
     const { containerName } = req.body;
     const db = getDatabase();
+
+    console.log(`Container-Erstellung angefordert für Benutzer ${userId}: "${containerName}"`);
 
     if (!containerName || containerName.trim().length === 0) {
       return res.status(400).json({
@@ -150,6 +156,7 @@ router.post('/create', async (req, res) => {
     });
 
     if (existingContainer) {
+      console.log(`Benutzer ${userId} hat bereits einen Container`);
       return res.status(409).json({
         error: 'Sie haben bereits einen Container',
         message: 'Jeder Benutzer kann nur einen Container haben'
@@ -160,7 +167,7 @@ router.post('/create', async (req, res) => {
     const vncPort = await findAvailablePort(VNC_PORT_START, VNC_PORT_END, 'vnc');
     const webVncPort = await findAvailablePort(WEB_VNC_PORT_START, WEB_VNC_PORT_END, 'web');
 
-    logger.info(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}`);
+    console.log(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}`);
 
     // Docker-Container erstellen
     const containerConfig = {
@@ -194,14 +201,21 @@ router.post('/create', async (req, res) => {
     const container = await docker.createContainer(containerConfig);
     const containerInfo = await container.inspect();
 
+    console.log(`Docker-Container erstellt: ${containerInfo.Id}`);
+
     // Container in Datenbank speichern
     const containerId = await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO containers (user_id, container_id, container_name, vnc_port, web_port, status) VALUES (?, ?, ?, ?, ?, ?)',
         [userId, containerInfo.Id, containerName.trim(), vncPort, webVncPort, 'created'],
         function(err) {
-          if (err) reject(err);
-          else resolve(this.lastID);
+          if (err) {
+            console.error('Fehler beim Speichern in Datenbank:', err);
+            reject(err);
+          } else {
+            console.log(`Container in Datenbank gespeichert mit ID: ${this.lastID}`);
+            resolve(this.lastID);
+          }
         }
       );
     });
@@ -218,7 +232,7 @@ router.post('/create', async (req, res) => {
       );
     });
 
-    logger.info(`Container erfolgreich erstellt: ${containerInfo.Id} für Benutzer ${req.user.username}`);
+    console.log(`Container erfolgreich erstellt: ${containerInfo.Id} für Benutzer ${req.user.username}`);
 
     res.status(201).json({
       message: 'Container erfolgreich erstellt',
@@ -233,7 +247,7 @@ router.post('/create', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Fehler beim Erstellen des Containers:', error);
+    console.error('Fehler beim Erstellen des Containers:', error);
     res.status(500).json({
       error: 'Container konnte nicht erstellt werden',
       message: error.message
@@ -304,7 +318,7 @@ router.post('/start', async (req, res) => {
       );
     });
 
-    logger.info(`Container gestartet: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
+    console.log(`Container gestartet: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
 
     res.json({
       message: 'Container erfolgreich gestartet',
@@ -320,7 +334,7 @@ router.post('/start', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Fehler beim Starten des Containers:', error);
+    console.error('Fehler beim Starten des Containers:', error);
     res.status(500).json({
       error: 'Container konnte nicht gestartet werden',
       message: error.message
@@ -390,7 +404,7 @@ router.post('/stop', async (req, res) => {
       );
     });
 
-    logger.info(`Container gestoppt: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
+    console.log(`Container gestoppt: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
 
     res.json({
       message: 'Container erfolgreich gestoppt',
@@ -402,7 +416,7 @@ router.post('/stop', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Fehler beim Stoppen des Containers:', error);
+    console.error('Fehler beim Stoppen des Containers:', error);
     res.status(500).json({
       error: 'Container konnte nicht gestoppt werden',
       message: error.message
@@ -447,7 +461,7 @@ router.delete('/', async (req, res) => {
       await container.remove();
     } catch (dockerError) {
       // Container existiert möglicherweise nicht mehr in Docker
-      logger.warn(`Docker-Container ${containerRecord.container_id} konnte nicht gelöscht werden:`, dockerError.message);
+      console.warn(`Docker-Container ${containerRecord.container_id} konnte nicht gelöscht werden:`, dockerError.message);
     }
     
     // Container aus Datenbank entfernen
@@ -474,14 +488,14 @@ router.delete('/', async (req, res) => {
       );
     });
 
-    logger.info(`Container gelöscht: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
+    console.log(`Container gelöscht: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
 
     res.json({
       message: 'Container erfolgreich gelöscht'
     });
 
   } catch (error) {
-    logger.error('Fehler beim Löschen des Containers:', error);
+    console.error('Fehler beim Löschen des Containers:', error);
     res.status(500).json({
       error: 'Container konnte nicht gelöscht werden',
       message: error.message
@@ -529,7 +543,7 @@ router.get('/logs', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Fehler beim Abrufen der Container-Logs:', error);
+    console.error('Fehler beim Abrufen der Container-Logs:', error);
     res.status(500).json({
       error: 'Container-Logs konnten nicht abgerufen werden'
     });

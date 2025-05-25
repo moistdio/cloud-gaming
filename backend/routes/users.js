@@ -1,6 +1,5 @@
 const express = require('express');
 const { getDatabase } = require('../database/init');
-const logger = require('../utils/logger');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -54,7 +53,7 @@ router.get('/profile', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Profil-Abruffehler:', error);
+    console.error('Profil-Abruffehler:', error);
     res.status(500).json({
       error: 'Profil konnte nicht abgerufen werden'
     });
@@ -101,7 +100,7 @@ router.get('/logs', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Log-Abruffehler:', error);
+    console.error('Log-Abruffehler:', error);
     res.status(500).json({
       error: 'Logs konnten nicht abgerufen werden'
     });
@@ -137,7 +136,7 @@ router.get('/sessions', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Session-Abruffehler:', error);
+    console.error('Session-Abruffehler:', error);
     res.status(500).json({
       error: 'Sessions konnten nicht abgerufen werden'
     });
@@ -167,7 +166,7 @@ router.delete('/sessions/:sessionToken', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Session-Löschfehler:', error);
+    console.error('Session-Löschfehler:', error);
     res.status(500).json({
       error: 'Session konnte nicht beendet werden'
     });
@@ -201,7 +200,7 @@ router.delete('/sessions', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Sessions-Löschfehler:', error);
+    console.error('Session-Löschfehler:', error);
     res.status(500).json({
       error: 'Sessions konnten nicht beendet werden'
     });

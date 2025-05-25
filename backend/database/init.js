@@ -1,7 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
-const logger = require('../utils/logger');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/database.sqlite');
 
@@ -22,19 +21,21 @@ async function initDatabase() {
       fs.mkdirSync(dbDir, { recursive: true });
     }
 
+    console.log(`Initialisiere Datenbank: ${DB_PATH}`);
+
     db = new sqlite3.Database(DB_PATH, (err) => {
       if (err) {
-        logger.error('Fehler beim Öffnen der Datenbank:', err);
+        console.error('Fehler beim Öffnen der Datenbank:', err);
         reject(err);
         return;
       }
       
-      logger.info(`Datenbank verbunden: ${DB_PATH}`);
+      console.log(`Datenbank verbunden: ${DB_PATH}`);
       
       // Tabellen erstellen und migrieren
       createTablesAndMigrate()
         .then(() => {
-          logger.info('Datenbank erfolgreich initialisiert');
+          console.log('Datenbank erfolgreich initialisiert');
           resolve();
         })
         .catch(reject);
@@ -44,6 +45,8 @@ async function initDatabase() {
 
 async function createTablesAndMigrate() {
   return new Promise((resolve, reject) => {
+    console.log('Erstelle Datenbank-Tabellen...');
+    
     const queries = [
       // Benutzer-Tabelle (ohne is_admin erstmal)
       `CREATE TABLE IF NOT EXISTS users (
@@ -102,11 +105,12 @@ async function createTablesAndMigrate() {
     queries.forEach((query, index) => {
       db.run(query, (err) => {
         if (err) {
-          logger.error(`Fehler beim Erstellen der Tabelle ${index + 1}:`, err);
+          console.error(`Fehler beim Erstellen der Tabelle ${index + 1}:`, err);
           reject(err);
           return;
         }
         
+        console.log(`Tabelle ${index + 1}/${total} erstellt`);
         completed++;
         if (completed === total) {
           // Nach dem Erstellen der Tabellen, Migrationen durchführen
@@ -122,7 +126,7 @@ async function createTablesAndMigrate() {
 
 async function runMigrations() {
   return new Promise((resolve, reject) => {
-    logger.info('Führe Datenbankmigrationen durch...');
+    console.log('Führe Datenbankmigrationen durch...');
     
     // Prüfe ob is_admin Spalte existiert
     db.get("PRAGMA table_info(users)", (err, result) => {
@@ -141,18 +145,18 @@ async function runMigrations() {
         const hasIsAdmin = columns.some(col => col.name === 'is_admin');
         
         if (!hasIsAdmin) {
-          logger.info('Füge is_admin Spalte zur users Tabelle hinzu...');
+          console.log('Füge is_admin Spalte zur users Tabelle hinzu...');
           db.run("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0", (err) => {
             if (err) {
-              logger.error('Fehler beim Hinzufügen der is_admin Spalte:', err);
+              console.error('Fehler beim Hinzufügen der is_admin Spalte:', err);
               reject(err);
               return;
             }
-            logger.info('is_admin Spalte erfolgreich hinzugefügt');
+            console.log('is_admin Spalte erfolgreich hinzugefügt');
             resolve();
           });
         } else {
-          logger.info('is_admin Spalte existiert bereits');
+          console.log('is_admin Spalte existiert bereits');
           resolve();
         }
       });
@@ -162,6 +166,8 @@ async function runMigrations() {
 
 async function createIndexes() {
   return new Promise((resolve, reject) => {
+    console.log('Erstelle Datenbank-Indizes...');
+    
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
       'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
@@ -180,13 +186,14 @@ async function createIndexes() {
     indexes.forEach((indexQuery) => {
       db.run(indexQuery, (err) => {
         if (err) {
-          logger.error('Fehler beim Erstellen des Index:', err);
+          console.error('Fehler beim Erstellen des Index:', err);
           reject(err);
           return;
         }
         
         completed++;
         if (completed === total) {
+          console.log('Alle Indizes erfolgreich erstellt');
           resolve();
         }
       });
@@ -198,8 +205,7 @@ async function createIndexes() {
 async function checkFirstUserAdmin(userId) {
   return new Promise((resolve, reject) => {
     db.get(
-      'SELECT COUNT(*) as count FROM users WHERE id < ?',
-      [userId],
+      'SELECT COUNT(*) as count FROM users',
       (err, row) => {
         if (err) {
           reject(err);
@@ -207,17 +213,19 @@ async function checkFirstUserAdmin(userId) {
         }
         
         // Wenn dies der erste Benutzer ist, mache ihn zum Admin
-        if (row.count === 0) {
+        if (row.count === 1) {
+          console.log(`Erster Benutzer (ID: ${userId}) wird zum Administrator ernannt`);
           db.run(
             'UPDATE users SET is_admin = 1 WHERE id = ?',
             [userId],
-            (updateErr) => {
-              if (updateErr) {
-                reject(updateErr);
-                return;
+            (err) => {
+              if (err) {
+                console.error('Fehler beim Setzen des Admin-Status:', err);
+                reject(err);
+              } else {
+                console.log('Admin-Status erfolgreich gesetzt');
+                resolve(true);
               }
-              logger.info(`Erster Benutzer (ID: ${userId}) wurde zum Administrator ernannt`);
-              resolve(true);
             }
           );
         } else {
@@ -232,9 +240,9 @@ function closeDatabase() {
   if (db) {
     db.close((err) => {
       if (err) {
-        logger.error('Fehler beim Schließen der Datenbank:', err);
+        console.error('Fehler beim Schließen der Datenbank:', err);
       } else {
-        logger.info('Datenbankverbindung geschlossen');
+        console.log('Datenbankverbindung geschlossen');
       }
     });
   }
