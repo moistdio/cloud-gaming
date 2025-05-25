@@ -773,9 +773,9 @@ router.get('/gpu-status', async (req, res) => {
 
       // Versuche GPU-Informationen über Docker zu ermitteln
       try {
-        // Erstelle temporären Container für GPU-Test
+        // Erstelle temporären Container für GPU-Test mit unserem Image
         const testContainer = await docker.createContainer({
-          Image: 'nvidia/cuda:12.2-base-ubuntu22.04',
+          Image: 'cloud-gaming-desktop:latest',
           Cmd: ['nvidia-smi', '--query-gpu=name,driver_version,memory.total', '--format=csv,noheader,nounits'],
           HostConfig: {
             Runtime: 'nvidia',
@@ -783,10 +783,33 @@ router.get('/gpu-status', async (req, res) => {
               {
                 Driver: 'nvidia',
                 Count: -1,
-                Capabilities: [['gpu']]
+                Capabilities: [['gpu', 'compute', 'utility', 'video', 'graphics', 'display']]
               }
             ],
-            AutoRemove: true
+            AutoRemove: true,
+            // Zusätzliche GPU-Devices
+            Devices: [
+              {
+                PathOnHost: '/dev/dri',
+                PathInContainer: '/dev/dri',
+                CgroupPermissions: 'rwm'
+              },
+              {
+                PathOnHost: '/dev/nvidia0',
+                PathInContainer: '/dev/nvidia0',
+                CgroupPermissions: 'rwm'
+              },
+              {
+                PathOnHost: '/dev/nvidiactl',
+                PathInContainer: '/dev/nvidiactl',
+                CgroupPermissions: 'rwm'
+              },
+              {
+                PathOnHost: '/dev/nvidia-uvm',
+                PathInContainer: '/dev/nvidia-uvm',
+                CgroupPermissions: 'rwm'
+              }
+            ]
           },
           Env: [
             'NVIDIA_VISIBLE_DEVICES=all',
