@@ -31,33 +31,57 @@ function generateSecurePassword(length = 12) {
 async function findAvailablePort(startPort, endPort, type = 'vnc') {
   const db = getDatabase();
   
-  return new Promise((resolve, reject) => {
-    const column = type === 'vnc' ? 'vnc_port' : 'web_port';
-    
-    // Alle verwendeten Ports in dem Bereich abrufen
-    db.all(
-      `SELECT ${column} FROM containers WHERE ${column} >= ? AND ${column} <= ? ORDER BY ${column}`,
-      [startPort, endPort],
-      (err, rows) => {
-        if (err) {
-          reject(err);
+  return new Promise(async (resolve, reject) => {
+    try {
+      const column = type === 'vnc' ? 'vnc_port' : 'web_port';
+      
+      // Alle verwendeten Ports in dem Bereich abrufen (nur von aktiven Containern)
+      const rows = await new Promise((res, rej) => {
+        db.all(
+          `SELECT container_id, ${column} FROM containers WHERE ${column} >= ? AND ${column} <= ? ORDER BY ${column}`,
+          [startPort, endPort],
+          (err, rows) => {
+            if (err) rej(err);
+            else res(rows);
+          }
+        );
+      });
+      
+      // Prüfe welche Container tatsächlich noch existieren/laufen
+      const activePorts = [];
+      for (const row of rows) {
+        try {
+          const container = docker.getContainer(row.container_id);
+          const info = await container.inspect();
+          // Container existiert noch - Port ist belegt
+          activePorts.push(row[column]);
+        } catch (error) {
+          // Container existiert nicht mehr - Port kann freigegeben werden
+          console.log(`Container ${row.container_id} existiert nicht mehr, Port ${row[column]} wird freigegeben`);
+          // Entferne toten Container aus Datenbank
+          db.run('DELETE FROM containers WHERE container_id = ?', [row.container_id], (err) => {
+            if (err) console.error('Fehler beim Entfernen toter Container:', err);
+          });
+        }
+      }
+      
+      console.log(`Port-Suche ${type}: Bereich ${startPort}-${endPort}, aktive Ports:`, activePorts);
+      
+      // Ersten freien Port finden
+      for (let port = startPort; port <= endPort; port++) {
+        if (!activePorts.includes(port)) {
+          console.log(`Freier ${type}-Port gefunden: ${port}`);
+          resolve(port);
           return;
         }
-        
-        const usedPorts = rows.map(row => row[column]);
-        
-        // Ersten freien Port finden
-        for (let port = startPort; port <= endPort; port++) {
-          if (!usedPorts.includes(port)) {
-            resolve(port);
-            return;
-          }
-        }
-        
-        // Kein freier Port verfügbar
-        reject(new Error(`Keine freien Ports im Bereich ${startPort}-${endPort} verfügbar`));
       }
-    );
+      
+      // Kein freier Port verfügbar
+      reject(new Error(`Keine freien Ports im Bereich ${startPort}-${endPort} verfügbar. Aktive Ports: ${activePorts.length}`));
+      
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
@@ -70,6 +94,49 @@ async function getContainerStatus(containerId) {
   } catch (error) {
     return 'not_found';
   }
+}
+
+// Hilfsfunktion: Tote Container aus Datenbank entfernen
+async function cleanupOrphanedContainers() {
+  const db = getDatabase();
+  
+  return new Promise((resolve, reject) => {
+    db.all('SELECT id, container_id FROM containers', [], async (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      const orphanedIds = [];
+      
+      for (const row of rows) {
+        const status = await getContainerStatus(row.container_id);
+        if (status === 'not_found') {
+          orphanedIds.push(row.id);
+          console.log(`Orphaned container found in database: ${row.container_id}`);
+        }
+      }
+      
+      if (orphanedIds.length > 0) {
+        const placeholders = orphanedIds.map(() => '?').join(',');
+        db.run(
+          `DELETE FROM containers WHERE id IN (${placeholders})`,
+          orphanedIds,
+          (err) => {
+            if (err) {
+              console.error('Error cleaning up orphaned containers:', err);
+              reject(err);
+            } else {
+              console.log(`Cleaned up ${orphanedIds.length} orphaned containers`);
+              resolve(orphanedIds.length);
+            }
+          }
+        );
+      } else {
+        resolve(0);
+      }
+    });
+  });
 }
 
 // GET /api/containers - Benutzer-Container abrufen
@@ -176,10 +243,14 @@ router.post('/create', async (req, res) => {
       });
     }
 
+    // Zuerst tote Container aus Datenbank entfernen
+    console.log('Cleaning up orphaned containers before creating new one...');
+    await cleanupOrphanedContainers();
+
     // Prüfen ob Benutzer bereits einen Container hat
     const existingContainer = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id FROM containers WHERE user_id = ?',
+        'SELECT id, container_id FROM containers WHERE user_id = ?',
         [userId],
         (err, row) => {
           if (err) reject(err);
@@ -189,21 +260,47 @@ router.post('/create', async (req, res) => {
     });
 
     if (existingContainer) {
-      console.log(`Benutzer ${userId} hat bereits einen Container`);
-      return res.status(409).json({
-        error: 'Sie haben bereits einen Container',
-        message: 'Jeder Benutzer kann nur einen Container haben'
-      });
+      // Prüfe ob der Container tatsächlich noch existiert
+      const status = await getContainerStatus(existingContainer.container_id);
+      if (status !== 'not_found') {
+        console.log(`Benutzer ${userId} hat bereits einen aktiven Container`);
+        return res.status(409).json({
+          error: 'Sie haben bereits einen Container',
+          message: 'Jeder Benutzer kann nur einen Container haben'
+        });
+      } else {
+        // Container existiert nicht mehr, entferne aus Datenbank
+        console.log(`Removing orphaned container for user ${userId}`);
+        await new Promise((resolve, reject) => {
+          db.run('DELETE FROM containers WHERE id = ?', [existingContainer.id], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
     }
 
-    // Verfügbare Ports finden
-    const vncPort = await findAvailablePort(VNC_PORT_START, VNC_PORT_END, 'vnc');
-    const webVncPort = await findAvailablePort(WEB_VNC_PORT_START, WEB_VNC_PORT_END, 'web');
+    // Verfügbare Ports finden (mit Retry-Logik)
+    let vncPort, webVncPort;
+    let retries = 3;
+    
+    while (retries > 0) {
+      try {
+        vncPort = await findAvailablePort(VNC_PORT_START, VNC_PORT_END, 'vnc');
+        webVncPort = await findAvailablePort(WEB_VNC_PORT_START, WEB_VNC_PORT_END, 'web');
+        break;
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        console.log(`Port allocation failed, retrying... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      }
+    }
 
     // Sicheres VNC-Passwort generieren
     const vncPassword = generateSecurePassword(12);
 
-    console.log(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}, Passwort generiert`);
+    console.log(`Erstelle Container für Benutzer ${req.user.username} (ID: ${userId}): VNC=${vncPort}, Web=${webVncPort}, Passwort generiert`);
 
     // Docker-Container erstellen mit GPU-Support
     const containerConfig = {
@@ -938,6 +1035,73 @@ router.get('/gpu-status', async (req, res) => {
           video_decode: false
         }
       }
+    });
+  }
+});
+
+// POST /api/containers/cleanup - Tote Container bereinigen (Admin-Endpoint)
+router.post('/cleanup', async (req, res) => {
+  try {
+    console.log('Manual cleanup requested');
+    const cleanedCount = await cleanupOrphanedContainers();
+    
+    res.json({
+      message: 'Cleanup completed',
+      cleanedContainers: cleanedCount
+    });
+  } catch (error) {
+    console.error('Error during manual cleanup:', error);
+    res.status(500).json({
+      error: 'Cleanup failed',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/containers/ports - Port-Status anzeigen (Debug-Endpoint)
+router.get('/ports', async (req, res) => {
+  try {
+    const db = getDatabase();
+    
+    const containers = await new Promise((resolve, reject) => {
+      db.all('SELECT user_id, container_id, vnc_port, web_port, status FROM containers ORDER BY vnc_port', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    
+    const portStatus = [];
+    
+    for (const container of containers) {
+      const dockerStatus = await getContainerStatus(container.container_id);
+      portStatus.push({
+        userId: container.user_id,
+        containerId: container.container_id.substring(0, 12),
+        vncPort: container.vnc_port,
+        webPort: container.web_port,
+        dbStatus: container.status,
+        dockerStatus: dockerStatus,
+        isOrphaned: dockerStatus === 'not_found'
+      });
+    }
+    
+    res.json({
+      portRanges: {
+        vnc: `${VNC_PORT_START}-${VNC_PORT_END}`,
+        web: `${WEB_VNC_PORT_START}-${WEB_VNC_PORT_END}`
+      },
+      containers: portStatus,
+      summary: {
+        total: portStatus.length,
+        running: portStatus.filter(c => c.dockerStatus === 'running').length,
+        orphaned: portStatus.filter(c => c.isOrphaned).length
+      }
+    });
+  } catch (error) {
+    console.error('Error getting port status:', error);
+    res.status(500).json({
+      error: 'Failed to get port status',
+      message: error.message
     });
   }
 });
