@@ -242,7 +242,7 @@ const ContainersPage = () => {
                         <Button
                           variant="outlined"
                           startIcon={<ViewIcon />}
-                          onClick={() => window.open(`http://localhost:${container.webVncPort}`, '_blank')}
+                          onClick={() => window.open(`http://${window.location.hostname}:${container.webVncPort}`, '_blank')}
                           disabled={actionLoading}
                         >
                           Desktop öffnen
