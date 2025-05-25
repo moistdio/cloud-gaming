@@ -1,7 +1,7 @@
 const express = require('express');
 const Docker = require('dockerode');
 const { getDatabase } = require('../database/init');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -13,7 +13,7 @@ const WEB_VNC_PORT_START = 12000;
 const WEB_VNC_PORT_END = 12430;
 
 // Alle Middleware-Funktionen benötigen Authentifizierung
-router.use(authMiddleware);
+router.use(authenticateToken);
 
 // Hilfsfunktion: Nächsten verfügbaren Port finden
 async function findAvailablePort(startPort, endPort, type = 'vnc') {
