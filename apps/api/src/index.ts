@@ -20,7 +20,7 @@ app.use(cors({
     'http://148.251.51.138:7000',
     'http://148.251.51.138:7080',
     process.env.CORS_ORIGIN
-  ].filter(Boolean),
+  ].filter((origin): origin is string => Boolean(origin)),
   credentials: true
 }));
 app.use(compression());
