@@ -345,7 +345,7 @@ router.get('/dashboard-stats', async (req, res) => {
     // Port-Nutzung berechnen
     const portUsage = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT vnc_port, web_vnc_port FROM containers WHERE status = "running"',
+        'SELECT vnc_port, web_port FROM containers WHERE status = "running"',
         [],
         (err, rows) => {
           if (err) reject(err);
