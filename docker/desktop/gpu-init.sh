@@ -370,17 +370,24 @@ EOF
         # Vulkan ICD für NVIDIA konfigurieren
         log_info "Configuring NVIDIA Vulkan ICD..."
         mkdir -p /usr/share/vulkan/icd.d
-        cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
-{
-    "file_format_version": "1.0.0",
-    "ICD": {
-        "library_path": "libGLX_nvidia.so.0",
-        "api_version": "1.3.0"
-    }
-}
-EOF
         
-        # Alternative Vulkan-Konfiguration falls die erste nicht funktioniert
+        # Suche nach verfügbaren NVIDIA Vulkan-Bibliotheken
+        NVIDIA_VULKAN_PATHS=(
+            "/usr/lib/x86_64-linux-gnu/nvidia/nvidia_icd.json"
+            "/usr/share/vulkan/icd.d/nvidia_icd.json"
+            "/usr/lib/x86_64-linux-gnu/libvulkan_nvidia.so"
+            "/usr/lib/nvidia/libvulkan_nvidia.so"
+        )
+        
+        NVIDIA_VULKAN_LIB=""
+        for path in "${NVIDIA_VULKAN_PATHS[@]}"; do
+            if [ -f "$path" ]; then
+                NVIDIA_VULKAN_LIB="$path"
+                break
+            fi
+        done
+        
+        # Erstelle NVIDIA Vulkan ICD Konfiguration
         if [ -f "/usr/lib/x86_64-linux-gnu/libvulkan_nvidia.so" ]; then
             cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
 {
@@ -391,9 +398,43 @@ EOF
     }
 }
 EOF
+            log_success "NVIDIA Vulkan ICD configured with libvulkan_nvidia.so"
+        elif [ -f "/usr/lib/x86_64-linux-gnu/nvidia/nvidia_icd.json" ]; then
+            # Kopiere existierende NVIDIA ICD Konfiguration
+            cp /usr/lib/x86_64-linux-gnu/nvidia/nvidia_icd.json /usr/share/vulkan/icd.d/
+            log_success "NVIDIA Vulkan ICD configured from system"
+        else
+            # Fallback-Konfiguration
+            cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "nvidia_icd",
+        "api_version": "1.3.0"
+    }
+}
+EOF
+            log_warning "NVIDIA Vulkan ICD configured with fallback"
         fi
         
-        log_success "NVIDIA Vulkan ICD configured"
+        # Teste Vulkan-Verfügbarkeit
+        if command -v vulkaninfo &> /dev/null; then
+            log_info "Testing Vulkan availability..."
+            export DISPLAY=:99
+            if command -v Xvfb &> /dev/null; then
+                Xvfb :99 -screen 0 1024x768x24 &
+                XVFB_PID=$!
+                sleep 2
+                
+                if vulkaninfo --summary 2>/dev/null | grep -q "NVIDIA"; then
+                    log_success "NVIDIA Vulkan driver detected"
+                else
+                    log_warning "NVIDIA Vulkan driver not detected"
+                fi
+                
+                kill $XVFB_PID 2>/dev/null || true
+            fi
+        fi
     else
         # Generische GPU-Konfiguration
         cat > /etc/X11/xorg.conf.d/20-gpu.conf << EOF

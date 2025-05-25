@@ -192,6 +192,8 @@ fi
 
 # Vulkan-Support
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
+export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 
 # CUDA-Pfade
 export PATH=/usr/local/cuda/bin:\$PATH
