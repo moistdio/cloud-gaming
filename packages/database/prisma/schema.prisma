@@ -1,0 +1,375 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  avatar    String?
+  role      UserRole @default(USER)
+  steamId   String?  @unique
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  steamLibrary     SteamLibrary?
+  streamingSessions StreamingSession[]
+  notifications    Notification[]
+  settings         UserSettings?
+  analytics        UserAnalytics?
+  inviteCodes      InviteCode[]
+  usedInviteCode   InviteCode? @relation("UsedInviteCode", fields: [usedInviteCodeId], references: [id])
+  usedInviteCodeId String?
+
+  @@map("users")
+}
+
+model InviteCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  createdBy String
+  usedBy    String?
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  // Relations
+  creator User  @relation(fields: [createdBy], references: [id])
+  user    User? @relation("UsedInviteCode")
+
+  @@map("invite_codes")
+}
+
+model Game {
+  id           String    @id @default(cuid())
+  steamAppId   Int       @unique
+  name         String
+  description  String?
+  headerImage  String?
+  screenshots  String[]
+  genres       String[]
+  categories   String[]
+  releaseDate  DateTime?
+  developer    String?
+  publisher    String?
+  price        Float?
+  isInstalled  Boolean   @default(false)
+  installSize  BigInt?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  libraryEntries   LibraryEntry[]
+  streamingSessions StreamingSession[]
+  achievements     Achievement[]
+
+  @@map("games")
+}
+
+model Achievement {
+  id          String    @id @default(cuid())
+  steamId     String
+  name        String
+  description String
+  icon        String
+  iconGray    String
+  gameId      String
+  achieved    Boolean   @default(false)
+  achievedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([steamId, gameId])
+  @@map("achievements")
+}
+
+model SteamLibrary {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  totalGames    Int      @default(0)
+  totalPlaytime BigInt   @default(0)
+  lastSync      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries LibraryEntry[]
+
+  @@map("steam_libraries")
+}
+
+model LibraryEntry {
+  id         String    @id @default(cuid())
+  libraryId  String
+  gameId     String
+  playtime   BigInt    @default(0)
+  lastPlayed DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  library SteamLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  game    Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([libraryId, gameId])
+  @@map("library_entries")
+}
+
+model GameServer {
+  id                   String       @id @default(cuid())
+  name                 String
+  hostname             String       @unique
+  ipAddress            String
+  port                 Int
+  status               ServerStatus @default(OFFLINE)
+  region               String
+  cpuSpec              String
+  gpuSpec              String
+  ramSize              Int
+  storageSize          BigInt
+  networkSpec          String
+  osVersion            String
+  currentLoad          Float        @default(0)
+  maxConcurrentStreams Int          @default(10)
+  activeStreams        Int          @default(0)
+  lastHeartbeat        DateTime     @default(now())
+  version              String
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  // Relations
+  streamingSessions StreamingSession[]
+  serverMetrics     ServerMetrics[]
+
+  @@map("game_servers")
+}
+
+model StreamingSession {
+  id         String          @id @default(cuid())
+  userId     String
+  gameId     String
+  serverId   String
+  status     StreamingStatus @default(STARTING)
+  quality    String          @default("1080p")
+  fps        Int             @default(60)
+  bitrate    Int             @default(20000)
+  resolution String          @default("1920x1080")
+  startedAt  DateTime        @default(now())
+  endedAt    DateTime?
+  duration   Int?
+
+  // Client Info
+  userAgent        String
+  platform         String
+  screenResolution String
+  networkType      String
+  location         String?
+
+  // Metrics
+  avgFps       Float @default(0)
+  avgBitrate   Float @default(0)
+  packetLoss   Float @default(0)
+  latency      Float @default(0)
+  jitter       Float @default(0)
+  bandwidth    Float @default(0)
+  cpuUsage     Float @default(0)
+  gpuUsage     Float @default(0)
+  memoryUsage  Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game   Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  server GameServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@map("streaming_sessions")
+}
+
+model ServerMetrics {
+  id            String   @id @default(cuid())
+  serverId      String
+  timestamp     DateTime @default(now())
+  cpuUsage      Float
+  memoryUsage   Float
+  gpuUsage      Float
+  networkUsage  Float
+  activeStreams Int
+  temperature   Float?
+  powerUsage    Float?
+
+  // Relations
+  server GameServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@map("server_metrics")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  expiresAt DateTime?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Streaming Settings
+  preferredQuality     String  @default("1080p")
+  preferredFps         Int     @default(60)
+  adaptiveQuality      Boolean @default(true)
+  hardwareDecoding     Boolean @default(true)
+  lowLatencyMode       Boolean @default(false)
+
+  // Control Settings
+  keyboardLayout       String  @default("qwerty")
+  mouseSensitivity     Float   @default(1.0)
+  mouseAcceleration    Boolean @default(false)
+  mouseInvertY         Boolean @default(false)
+  gamepadDeadzone      Float   @default(0.1)
+  gamepadVibration     Boolean @default(true)
+  gamepadLayout        String  @default("xbox")
+  touchControls        Boolean @default(false)
+
+  // Audio Settings
+  volume               Float   @default(1.0)
+  muted                Boolean @default(false)
+  audioQuality         String  @default("high")
+  audioChannels        Int     @default(2)
+
+  // Video Settings
+  brightness           Float   @default(1.0)
+  contrast             Float   @default(1.0)
+  saturation           Float   @default(1.0)
+  hdr                  Boolean @default(false)
+  vsync                Boolean @default(true)
+
+  // Notification Settings
+  notificationsEnabled Boolean @default(true)
+  gameUpdates          Boolean @default(true)
+  achievements         Boolean @default(true)
+  systemAlerts         Boolean @default(true)
+  emailNotifications   Boolean @default(false)
+  pushNotifications    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model UserAnalytics {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  totalPlaytime        BigInt   @default(0)
+  sessionsCount        Int      @default(0)
+  favoriteGames        String[]
+  avgSessionDuration   Float    @default(0)
+  lastActive           DateTime @default(now())
+  deviceTypes          String[]
+  locations            String[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_analytics")
+}
+
+model SystemAnalytics {
+  id                     String   @id @default(cuid())
+  date                   DateTime @unique @default(now())
+  totalUsers             Int      @default(0)
+  activeUsers            Int      @default(0)
+  totalSessions          Int      @default(0)
+  activeSessions         Int      @default(0)
+  totalPlaytime          BigInt   @default(0)
+  avgConcurrentUsers     Float    @default(0)
+  totalBandwidth         Float    @default(0)
+  avgLatency             Float    @default(0)
+  packetLoss             Float    @default(0)
+  peakConcurrentStreams  Int      @default(0)
+  createdAt              DateTime @default(now())
+
+  @@map("system_analytics")
+}
+
+model PopularGame {
+  id             String   @id @default(cuid())
+  gameId         String
+  date           DateTime @default(now())
+  playCount      Int      @default(0)
+  totalPlaytime  BigInt   @default(0)
+  avgRating      Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  @@unique([gameId, date])
+  @@map("popular_games")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  USER
+  MODERATOR
+}
+
+enum ServerStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+}
+
+enum StreamingStatus {
+  STARTING
+  ACTIVE
+  PAUSED
+  STOPPING
+  STOPPED
+  ERROR
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  GAME_UPDATE
+  SYSTEM_MAINTENANCE
+  ACHIEVEMENT
+} 
