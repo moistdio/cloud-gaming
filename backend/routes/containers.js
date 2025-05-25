@@ -1,178 +1,244 @@
 const express = require('express');
 const Docker = require('dockerode');
 const { getDatabase } = require('../database/init');
+const authMiddleware = require('../middleware/auth');
 const logger = require('../utils/logger');
-const { authenticateToken } = require('../middleware/auth');
-const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
-const docker = new Docker();
+const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
-// Port-Range für VNC und Web-VNC
-const VNC_PORT_START = 5900;
-const WEB_VNC_PORT_START = 6080;
-const MAX_CONTAINERS_PER_USER = 3;
+// Port-Konfiguration
+const VNC_PORT_START = 11000;
+const WEB_VNC_PORT_START = 12000;
 
-// Alle Routes benötigen Authentifizierung
-router.use(authenticateToken);
+// Alle Middleware-Funktionen benötigen Authentifizierung
+router.use(authMiddleware);
 
-// Verfügbaren Port finden
-async function findAvailablePort(startPort, usedPorts = []) {
-  let port = startPort;
-  while (usedPorts.includes(port)) {
-    port++;
-  }
-  return port;
-}
-
-// Verwendete Ports aus der Datenbank abrufen
-async function getUsedPorts() {
+// Hilfsfunktion: Nächsten verfügbaren Port finden
+async function findAvailablePort(startPort, type = 'vnc') {
   const db = getDatabase();
+  
   return new Promise((resolve, reject) => {
-    db.all(
-      'SELECT vnc_port, web_port FROM containers WHERE status != "stopped"',
-      [],
-      (err, rows) => {
-        if (err) reject(err);
-        else {
-          const ports = [];
-          rows.forEach(row => {
-            ports.push(row.vnc_port, row.web_port);
-          });
-          resolve(ports);
+    const column = type === 'vnc' ? 'vnc_port' : 'web_port';
+    
+    db.get(
+      `SELECT MAX(${column}) as maxPort FROM containers WHERE ${column} >= ?`,
+      [startPort],
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
         }
+        
+        const nextPort = row.maxPort ? row.maxPort + 1 : startPort;
+        resolve(nextPort);
       }
     );
   });
 }
 
-// Container erstellen
+// Hilfsfunktion: Container-Status prüfen
+async function getContainerStatus(containerId) {
+  try {
+    const container = docker.getContainer(containerId);
+    const info = await container.inspect();
+    return info.State.Status;
+  } catch (error) {
+    return 'not_found';
+  }
+}
+
+// GET /api/containers - Benutzer-Container abrufen
+router.get('/', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const db = getDatabase();
+
+    // Container des Benutzers abrufen
+    const container = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM containers WHERE user_id = ?',
+        [userId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!container) {
+      return res.json({
+        container: null,
+        message: 'Kein Container vorhanden'
+      });
+    }
+
+    // Aktuellen Container-Status prüfen
+    const status = await getContainerStatus(container.container_id);
+    
+    // Status in Datenbank aktualisieren falls unterschiedlich
+    if (status !== container.status) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE containers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [status, container.id],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+      container.status = status;
+    }
+
+    res.json({
+      container: {
+        id: container.id,
+        name: container.container_name,
+        status: container.status,
+        vncPort: container.vnc_port,
+        webVncPort: container.web_port,
+        createdAt: container.created_at,
+        lastAccessed: container.last_accessed
+      }
+    });
+
+  } catch (error) {
+    logger.error('Fehler beim Abrufen der Container:', error);
+    res.status(500).json({
+      error: 'Container konnten nicht abgerufen werden'
+    });
+  }
+});
+
+// POST /api/containers/create - Container erstellen
 router.post('/create', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { containerName } = req.body;
     const db = getDatabase();
 
-    // Prüfen ob Benutzer bereits maximale Anzahl Container hat
-    const userContainers = await new Promise((resolve, reject) => {
-      db.all(
-        'SELECT COUNT(*) as count FROM containers WHERE user_id = ?',
+    if (!containerName || containerName.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Container-Name ist erforderlich'
+      });
+    }
+
+    // Prüfen ob Benutzer bereits einen Container hat
+    const existingContainer = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT id FROM containers WHERE user_id = ?',
         [userId],
-        (err, rows) => {
+        (err, row) => {
           if (err) reject(err);
-          else resolve(rows[0].count);
+          else resolve(row);
         }
       );
     });
 
-    if (userContainers >= MAX_CONTAINERS_PER_USER) {
-      return res.status(400).json({
-        error: 'Container-Limit erreicht',
-        message: `Maximal ${MAX_CONTAINERS_PER_USER} Container pro Benutzer erlaubt`
+    if (existingContainer) {
+      return res.status(409).json({
+        error: 'Sie haben bereits einen Container',
+        message: 'Jeder Benutzer kann nur einen Container haben'
       });
     }
 
     // Verfügbare Ports finden
-    const usedPorts = await getUsedPorts();
-    const vncPort = await findAvailablePort(VNC_PORT_START, usedPorts);
-    const webPort = await findAvailablePort(WEB_VNC_PORT_START, usedPorts);
+    const vncPort = await findAvailablePort(VNC_PORT_START, 'vnc');
+    const webVncPort = await findAvailablePort(WEB_VNC_PORT_START, 'web');
 
-    // Container-Name generieren falls nicht angegeben
-    const finalContainerName = containerName || `desktop-${req.user.username}-${Date.now()}`;
-    const containerId = uuidv4();
+    logger.info(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}`);
 
-    // Docker Container erstellen
-    const container = await docker.createContainer({
+    // Docker-Container erstellen
+    const containerConfig = {
       Image: 'cloud-gaming-desktop:latest',
-      name: finalContainerName,
+      name: `desktop-${userId}-${Date.now()}`,
       Env: [
-        `VNC_PASSWORD=${uuidv4().substring(0, 8)}`,
-        `DISPLAY=:1`,
         `VNC_PORT=${vncPort}`,
-        `WEB_PORT=${webPort}`,
+        `WEB_VNC_PORT=${webVncPort}`,
         `USER_ID=${userId}`,
-        `USERNAME=${req.user.username}`
+        `DISPLAY=:1`
       ],
       ExposedPorts: {
         [`${vncPort}/tcp`]: {},
-        [`${webPort}/tcp`]: {}
+        [`${webVncPort}/tcp`]: {}
       },
       HostConfig: {
         PortBindings: {
           [`${vncPort}/tcp`]: [{ HostPort: vncPort.toString() }],
-          [`${webPort}/tcp`]: [{ HostPort: webPort.toString() }]
+          [`${webVncPort}/tcp`]: [{ HostPort: webVncPort.toString() }]
         },
-        Memory: 2 * 1024 * 1024 * 1024, // 2GB RAM
-        CpuShares: 1024, // Standard CPU shares
-        ShmSize: 512 * 1024 * 1024, // 512MB shared memory
+        Memory: 2 * 1024 * 1024 * 1024, // 2GB RAM Limit
+        CpuShares: 1024, // Standard CPU-Anteil
         RestartPolicy: {
           Name: 'unless-stopped'
         }
       },
       WorkingDir: '/home/user',
       User: 'user'
-    });
+    };
+
+    const container = await docker.createContainer(containerConfig);
+    const containerInfo = await container.inspect();
 
     // Container in Datenbank speichern
-    await new Promise((resolve, reject) => {
+    const containerId = await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO containers (user_id, container_id, container_name, vnc_port, web_port, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, container.id, finalContainerName, vncPort, webPort, 'created'],
-        (err) => {
+        [userId, containerInfo.Id, containerName.trim(), vncPort, webVncPort, 'created'],
+        function(err) {
           if (err) reject(err);
-          else resolve();
+          else resolve(this.lastID);
         }
       );
     });
-
-    logger.info(`Container erstellt: ${finalContainerName} für Benutzer ${req.user.username}`);
 
     // Log erstellen
     await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
-        [userId, 'CONTAINER_CREATED', `Container ${finalContainerName} erstellt`, req.ip],
+        [userId, 'CONTAINER_CREATED', `Container "${containerName}" erstellt (VNC: ${vncPort}, Web: ${webVncPort})`, req.ip],
         (err) => {
           if (err) reject(err);
           else resolve();
         }
       );
     });
+
+    logger.info(`Container erfolgreich erstellt: ${containerInfo.Id} für Benutzer ${req.user.username}`);
 
     res.status(201).json({
       message: 'Container erfolgreich erstellt',
       container: {
-        id: container.id,
-        name: finalContainerName,
-        vncPort,
-        webPort,
+        id: containerId,
+        name: containerName.trim(),
         status: 'created',
-        vncUrl: `vnc://localhost:${vncPort}`,
-        webVncUrl: `http://localhost:${webPort}`
+        vncPort: vncPort,
+        webVncPort: webVncPort,
+        dockerId: containerInfo.Id
       }
     });
 
   } catch (error) {
-    logger.error('Container-Erstellungsfehler:', error);
+    logger.error('Fehler beim Erstellen des Containers:', error);
     res.status(500).json({
-      error: 'Container-Erstellung fehlgeschlagen',
+      error: 'Container konnte nicht erstellt werden',
       message: error.message
     });
   }
 });
 
-// Container starten
-router.post('/:containerId/start', async (req, res) => {
+// POST /api/containers/start - Container starten
+router.post('/start', async (req, res) => {
   try {
-    const { containerId } = req.params;
     const userId = req.user.userId;
     const db = getDatabase();
 
-    // Container-Berechtigung prüfen
-    const containerData = await new Promise((resolve, reject) => {
+    // Container des Benutzers abrufen
+    const containerRecord = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT * FROM containers WHERE container_id = ? AND user_id = ?',
-        [containerId, userId],
+        'SELECT * FROM containers WHERE user_id = ?',
+        [userId],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
@@ -180,77 +246,86 @@ router.post('/:containerId/start', async (req, res) => {
       );
     });
 
-    if (!containerData) {
+    if (!containerRecord) {
       return res.status(404).json({
-        error: 'Container nicht gefunden',
-        message: 'Container existiert nicht oder gehört nicht zu diesem Benutzer'
+        error: 'Kein Container gefunden',
+        message: 'Sie müssen zuerst einen Container erstellen'
       });
     }
 
-    // Docker Container starten
-    const container = docker.getContainer(containerId);
-    await container.start();
+    const container = docker.getContainer(containerRecord.container_id);
+    
+    // Container-Status prüfen
+    const info = await container.inspect();
+    
+    if (info.State.Status === 'running') {
+      return res.status(400).json({
+        error: 'Container läuft bereits'
+      });
+    }
 
+    // Container starten
+    await container.start();
+    
     // Status in Datenbank aktualisieren
     await new Promise((resolve, reject) => {
       db.run(
-        'UPDATE containers SET status = ?, last_accessed = CURRENT_TIMESTAMP WHERE container_id = ?',
-        ['running', containerId],
+        'UPDATE containers SET status = ?, updated_at = CURRENT_TIMESTAMP, last_accessed = CURRENT_TIMESTAMP WHERE id = ?',
+        ['running', containerRecord.id],
         (err) => {
           if (err) reject(err);
           else resolve();
         }
       );
     });
-
-    logger.info(`Container gestartet: ${containerData.container_name} von Benutzer ${req.user.username}`);
 
     // Log erstellen
     await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
-        [userId, 'CONTAINER_STARTED', `Container ${containerData.container_name} gestartet`, req.ip],
+        [userId, 'CONTAINER_STARTED', `Container "${containerRecord.container_name}" gestartet`, req.ip],
         (err) => {
           if (err) reject(err);
           else resolve();
         }
       );
     });
+
+    logger.info(`Container gestartet: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
 
     res.json({
       message: 'Container erfolgreich gestartet',
       container: {
-        id: containerId,
-        name: containerData.container_name,
+        id: containerRecord.id,
+        name: containerRecord.container_name,
         status: 'running',
-        vncPort: containerData.vnc_port,
-        webPort: containerData.web_port,
-        vncUrl: `vnc://localhost:${containerData.vnc_port}`,
-        webVncUrl: `http://localhost:${containerData.web_port}`
+        vncPort: containerRecord.vnc_port,
+        webVncPort: containerRecord.web_port,
+        vncUrl: `vnc://localhost:${containerRecord.vnc_port}`,
+        webVncUrl: `http://localhost:${containerRecord.web_port}`
       }
     });
 
   } catch (error) {
-    logger.error('Container-Startfehler:', error);
+    logger.error('Fehler beim Starten des Containers:', error);
     res.status(500).json({
-      error: 'Container-Start fehlgeschlagen',
+      error: 'Container konnte nicht gestartet werden',
       message: error.message
     });
   }
 });
 
-// Container stoppen
-router.post('/:containerId/stop', async (req, res) => {
+// POST /api/containers/stop - Container stoppen
+router.post('/stop', async (req, res) => {
   try {
-    const { containerId } = req.params;
     const userId = req.user.userId;
     const db = getDatabase();
 
-    // Container-Berechtigung prüfen
-    const containerData = await new Promise((resolve, reject) => {
+    // Container des Benutzers abrufen
+    const containerRecord = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT * FROM containers WHERE container_id = ? AND user_id = ?',
-        [containerId, userId],
+        'SELECT * FROM containers WHERE user_id = ?',
+        [userId],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
@@ -258,21 +333,31 @@ router.post('/:containerId/stop', async (req, res) => {
       );
     });
 
-    if (!containerData) {
+    if (!containerRecord) {
       return res.status(404).json({
-        error: 'Container nicht gefunden'
+        error: 'Kein Container gefunden'
       });
     }
 
-    // Docker Container stoppen
-    const container = docker.getContainer(containerId);
-    await container.stop();
+    const container = docker.getContainer(containerRecord.container_id);
+    
+    // Container-Status prüfen
+    const info = await container.inspect();
+    
+    if (info.State.Status !== 'running') {
+      return res.status(400).json({
+        error: 'Container läuft nicht'
+      });
+    }
 
+    // Container stoppen
+    await container.stop();
+    
     // Status in Datenbank aktualisieren
     await new Promise((resolve, reject) => {
       db.run(
-        'UPDATE containers SET status = ? WHERE container_id = ?',
-        ['stopped', containerId],
+        'UPDATE containers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['exited', containerRecord.id],
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -280,37 +365,49 @@ router.post('/:containerId/stop', async (req, res) => {
       );
     });
 
-    logger.info(`Container gestoppt: ${containerData.container_name} von Benutzer ${req.user.username}`);
+    // Log erstellen
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+        [userId, 'CONTAINER_STOPPED', `Container "${containerRecord.container_name}" gestoppt`, req.ip],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    logger.info(`Container gestoppt: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
 
     res.json({
       message: 'Container erfolgreich gestoppt',
       container: {
-        id: containerId,
-        status: 'stopped'
+        id: containerRecord.id,
+        name: containerRecord.container_name,
+        status: 'exited'
       }
     });
 
   } catch (error) {
-    logger.error('Container-Stoppfehler:', error);
+    logger.error('Fehler beim Stoppen des Containers:', error);
     res.status(500).json({
-      error: 'Container-Stopp fehlgeschlagen',
+      error: 'Container konnte nicht gestoppt werden',
       message: error.message
     });
   }
 });
 
-// Container löschen
-router.delete('/:containerId', async (req, res) => {
+// DELETE /api/containers - Container löschen
+router.delete('/', async (req, res) => {
   try {
-    const { containerId } = req.params;
     const userId = req.user.userId;
     const db = getDatabase();
 
-    // Container-Berechtigung prüfen
-    const containerData = await new Promise((resolve, reject) => {
+    // Container des Benutzers abrufen
+    const containerRecord = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT * FROM containers WHERE container_id = ? AND user_id = ?',
-        [containerId, userId],
+        'SELECT * FROM containers WHERE user_id = ?',
+        [userId],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
@@ -318,26 +415,33 @@ router.delete('/:containerId', async (req, res) => {
       );
     });
 
-    if (!containerData) {
+    if (!containerRecord) {
       return res.status(404).json({
-        error: 'Container nicht gefunden'
+        error: 'Kein Container gefunden'
       });
     }
 
-    // Docker Container löschen
-    const container = docker.getContainer(containerId);
+    const container = docker.getContainer(containerRecord.container_id);
+    
     try {
-      await container.stop();
-    } catch (e) {
-      // Container ist bereits gestoppt
+      // Container stoppen falls er läuft
+      const info = await container.inspect();
+      if (info.State.Status === 'running') {
+        await container.stop();
+      }
+      
+      // Container löschen
+      await container.remove();
+    } catch (dockerError) {
+      // Container existiert möglicherweise nicht mehr in Docker
+      logger.warn(`Docker-Container ${containerRecord.container_id} konnte nicht gelöscht werden:`, dockerError.message);
     }
-    await container.remove();
-
+    
     // Container aus Datenbank entfernen
     await new Promise((resolve, reject) => {
       db.run(
-        'DELETE FROM containers WHERE container_id = ?',
-        [containerId],
+        'DELETE FROM containers WHERE id = ?',
+        [containerRecord.id],
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -345,31 +449,56 @@ router.delete('/:containerId', async (req, res) => {
       );
     });
 
-    logger.info(`Container gelöscht: ${containerData.container_name} von Benutzer ${req.user.username}`);
+    // Log erstellen
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+        [userId, 'CONTAINER_DELETED', `Container "${containerRecord.container_name}" gelöscht`, req.ip],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    logger.info(`Container gelöscht: ${containerRecord.container_id} für Benutzer ${req.user.username}`);
 
     res.json({
       message: 'Container erfolgreich gelöscht'
     });
 
   } catch (error) {
-    logger.error('Container-Löschfehler:', error);
+    logger.error('Fehler beim Löschen des Containers:', error);
     res.status(500).json({
-      error: 'Container-Löschung fehlgeschlagen',
+      error: 'Container konnte nicht gelöscht werden',
       message: error.message
     });
   }
 });
 
-// Container auflisten
-router.get('/', async (req, res) => {
+// GET /api/containers/logs - Container-Logs abrufen (Admin)
+router.get('/logs', async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const db = getDatabase();
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        error: 'Zugriff verweigert',
+        message: 'Nur Administratoren können alle Container-Logs einsehen'
+      });
+    }
 
-    const containers = await new Promise((resolve, reject) => {
+    const db = getDatabase();
+    const { limit = 50, offset = 0 } = req.query;
+
+    const logs = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT * FROM containers WHERE user_id = ? ORDER BY created_at DESC',
-        [userId],
+        `SELECT l.*, u.username, c.container_name 
+         FROM logs l 
+         LEFT JOIN users u ON l.user_id = u.id 
+         LEFT JOIN containers c ON l.user_id = c.user_id 
+         WHERE l.action LIKE 'CONTAINER_%' 
+         ORDER BY l.created_at DESC 
+         LIMIT ? OFFSET ?`,
+        [parseInt(limit), parseInt(offset)],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -377,111 +506,19 @@ router.get('/', async (req, res) => {
       );
     });
 
-    // Docker-Status für jeden Container abrufen
-    const containersWithStatus = await Promise.all(
-      containers.map(async (containerData) => {
-        try {
-          const container = docker.getContainer(containerData.container_id);
-          const info = await container.inspect();
-          
-          return {
-            ...containerData,
-            dockerStatus: info.State.Status,
-            vncUrl: `vnc://localhost:${containerData.vnc_port}`,
-            webVncUrl: `http://localhost:${containerData.web_port}`
-          };
-        } catch (error) {
-          return {
-            ...containerData,
-            dockerStatus: 'not_found',
-            vncUrl: `vnc://localhost:${containerData.vnc_port}`,
-            webVncUrl: `http://localhost:${containerData.web_port}`
-          };
-        }
-      })
-    );
-
     res.json({
-      containers: containersWithStatus,
-      total: containersWithStatus.length,
-      maxAllowed: MAX_CONTAINERS_PER_USER
+      logs: logs,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        total: logs.length
+      }
     });
 
   } catch (error) {
-    logger.error('Container-Auflistungsfehler:', error);
+    logger.error('Fehler beim Abrufen der Container-Logs:', error);
     res.status(500).json({
-      error: 'Container-Auflistung fehlgeschlagen',
-      message: error.message
-    });
-  }
-});
-
-// Container-Details abrufen
-router.get('/:containerId', async (req, res) => {
-  try {
-    const { containerId } = req.params;
-    const userId = req.user.userId;
-    const db = getDatabase();
-
-    // Container-Berechtigung prüfen
-    const containerData = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM containers WHERE container_id = ? AND user_id = ?',
-        [containerId, userId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
-
-    if (!containerData) {
-      return res.status(404).json({
-        error: 'Container nicht gefunden'
-      });
-    }
-
-    // Docker-Informationen abrufen
-    try {
-      const container = docker.getContainer(containerId);
-      const info = await container.inspect();
-      const stats = await container.stats({ stream: false });
-
-      res.json({
-        container: {
-          ...containerData,
-          dockerInfo: {
-            status: info.State.Status,
-            startedAt: info.State.StartedAt,
-            finishedAt: info.State.FinishedAt,
-            restartCount: info.RestartCount
-          },
-          stats: {
-            cpuUsage: stats.cpu_stats,
-            memoryUsage: stats.memory_stats,
-            networkIO: stats.networks
-          },
-          vncUrl: `vnc://localhost:${containerData.vnc_port}`,
-          webVncUrl: `http://localhost:${containerData.web_port}`
-        }
-      });
-
-    } catch (error) {
-      res.json({
-        container: {
-          ...containerData,
-          dockerInfo: { status: 'not_found' },
-          vncUrl: `vnc://localhost:${containerData.vnc_port}`,
-          webVncUrl: `http://localhost:${containerData.web_port}`
-        }
-      });
-    }
-
-  } catch (error) {
-    logger.error('Container-Detail-Fehler:', error);
-    res.status(500).json({
-      error: 'Container-Details konnten nicht abgerufen werden',
-      message: error.message
+      error: 'Container-Logs konnten nicht abgerufen werden'
     });
   }
 });

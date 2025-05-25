@@ -1,240 +1,245 @@
-# 🎮 Cloud Gaming System
+# 🎮 Cloud Gaming / Remote Desktop System
 
-Ein vollständiges Cloud Gaming/Remote Desktop System, das es Benutzern ermöglicht, ihre eigenen Docker-Container mit VNC-Zugriff auf virtuelle Desktops auf einem Headless-Server zu erstellen.
+Ein vollständiges Cloud-Gaming und Remote-Desktop-System, das es Benutzern ermöglicht, virtuelle Desktop-Container mit VNC-Zugriff auf einem headless Server zu erstellen und zu verwalten.
 
-## ✨ Features
+## 🌟 Features
 
-- **🔐 Benutzerauthentifizierung**: JWT-basierte Anmeldung mit bcrypt-Passwort-Hashing
-- **👑 Admin-System**: Der erste Benutzer wird automatisch Administrator
-- **🖥️ Desktop-Container**: Ubuntu 22.04 mit XFCE4-Desktop-Umgebung
-- **🌐 VNC-Zugriff**: TightVNC-Server mit noVNC-Web-Interface
-- **📱 Responsive UI**: Moderne React-Frontend mit Material-UI
-- **🐳 Container-Management**: Vollständige Docker-Integration
-- **📊 Monitoring**: Aktivitätslogs und Session-Management
-- **🔒 Sicherheit**: Container-Isolation mit Ressourcenlimits
+### 🖥️ Container-Management
+- **Ein Container pro Benutzer**: Jeder Benutzer kann einen persönlichen Desktop-Container erstellen
+- **VNC-Zugriff**: Port-Bereich 11000+ für VNC-Server
+- **Web-VNC**: Browser-basierter Zugriff über noVNC (Port-Bereich 12000+)
+- **Ubuntu 22.04 + XFCE4**: Vollständige Desktop-Umgebung
+- **Automatische Port-Zuweisung**: Keine Konflikte zwischen Containern
 
-## 🚀 Schnellstart
+### 👥 Benutzerverwaltung
+- **Admin-System**: Erster Benutzer wird automatisch Administrator
+- **JWT-Authentifizierung**: Sichere Token-basierte Anmeldung
+- **Rollenverwaltung**: Admin- und Standard-Benutzer-Rollen
 
-### Voraussetzungen
-
-- Docker & Docker Compose
-- Node.js 18+ (für Entwicklung)
-- 4GB+ RAM empfohlen
-
-### 1. Repository klonen
-
-```bash
-git clone <repository-url>
-cd cloud-gaming
-```
-
-### 2. System starten
-
-**Linux/macOS:**
-```bash
-./start-system.sh
-```
-
-**Windows (PowerShell):**
-```powershell
-.\start-system.ps1
-```
-
-**Manuell:**
-```bash
-# Desktop-Image bauen
-cd docker/desktop
-docker build -t cloud-gaming-desktop .
-cd ../..
-
-# System starten
-docker-compose up -d --build
-```
-
-### 3. Zugriff
-
-- **Frontend**: http://localhost:3003
-- **Backend API**: http://localhost:3002
-- **API Health**: http://localhost:3002/api/health
-
-## 👤 Erste Schritte
-
-1. **Registrierung**: Öffnen Sie http://localhost:3003 und registrieren Sie sich
-   - Der erste Benutzer wird automatisch **Administrator**
-   - Starke Passwörter erforderlich (min. 8 Zeichen, Groß-/Kleinbuchstaben, Zahlen)
-
-2. **Desktop erstellen**: Nach der Anmeldung können Sie Desktop-Container erstellen
-
-3. **VNC-Zugriff**: Zugriff über Web-Browser oder VNC-Client
+### 🛠️ Technische Features
+- **Docker-Integration**: Vollständige Container-Verwaltung über Docker API
+- **SQLite-Datenbank**: Leichtgewichtige Datenspeicherung
+- **React-Frontend**: Moderne Web-Oberfläche mit Material-UI
+- **Node.js-Backend**: RESTful API mit Express.js
 
 ## 🏗️ Architektur
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │    Backend      │    │  Desktop        │
-│   React + MUI   │◄──►│  Node.js + API  │◄──►│  Ubuntu + VNC   │
-│   Port: 3003    │    │   Port: 3002    │    │  Dynamic Ports  │
+│   (React)       │◄──►│   (Node.js)     │◄──►│  Containers     │
+│   Port: 3003    │    │   Port: 3002    │    │  Ports: 11000+  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       ┌─────────────────┐
+                       │   SQLite DB     │
+                       │   + Docker API  │
+                       └─────────────────┘
 ```
 
-### Komponenten
+## 🚀 Schnellstart
 
-- **Frontend**: React.js mit Material-UI, Vite Build-System
-- **Backend**: Node.js/Express mit SQLite-Datenbank
-- **Desktop**: Ubuntu 22.04 + XFCE4 + TightVNC + noVNC
-- **Proxy**: nginx für VNC-Weiterleitung
+### Voraussetzungen
+- Docker & Docker Compose
+- Git
+- Mindestens 4GB RAM
+- Linux/macOS/Windows mit WSL2
+
+### 1. Repository klonen
+```bash
+git clone <repository-url>
+cd cloud-gaming
+```
+
+### 2. Desktop-Image bauen
+```bash
+# Linux/macOS
+chmod +x build-desktop-image.sh
+./build-desktop-image.sh
+
+# Windows PowerShell
+.\build-desktop-image.ps1
+```
+
+### 3. System starten
+```bash
+# Alle Services starten
+docker-compose up -d
+
+# Logs verfolgen
+docker-compose logs -f
+```
+
+### 4. Zugriff
+- **Web-Interface**: http://localhost:3003
+- **API**: http://localhost:3002
+
+## 📋 Erste Schritte
+
+### 1. Administrator-Account erstellen
+1. Öffnen Sie http://localhost:3003
+2. Klicken Sie auf "Registrieren"
+3. Der erste Benutzer wird automatisch Administrator
+
+### 2. Desktop-Container erstellen
+1. Melden Sie sich an
+2. Navigieren Sie zu "Mein Container"
+3. Klicken Sie "Container erstellen"
+4. Geben Sie einen Namen ein
+
+### 3. Desktop verwenden
+1. Starten Sie den Container
+2. Klicken Sie "Desktop öffnen" für Web-VNC
+3. Oder verwenden Sie einen VNC-Client mit dem angezeigten Port
+
+## 🖥️ Desktop-Umgebung
+
+Jeder Container enthält:
+- **Ubuntu 22.04** Basis-System
+- **XFCE4** Desktop-Umgebung
+- **Firefox** Web-Browser
+- **LibreOffice** Office-Suite
+- **Entwicklungstools**: Git, Nano, Vim, htop
+- **VNC-Server**: TightVNC für Remote-Zugriff
+- **noVNC**: Web-basierter VNC-Client
 
 ## 🔧 Konfiguration
 
-### Umgebungsvariablen
+### Port-Bereiche
+- **Frontend**: 3003
+- **Backend**: 3002
+- **VNC-Server**: 11000-11999
+- **Web-VNC**: 12000-12999
 
-```env
-# Backend
+### Umgebungsvariablen
+```bash
+# Backend (.env)
 NODE_ENV=production
 JWT_SECRET=your-super-secret-jwt-key-change-this
 DB_PATH=/app/data/database.sqlite
 
-# Container-Limits
-MAX_CONTAINERS_PER_USER=3
-CONTAINER_MEMORY_LIMIT=2g
+# Container
+VNC_PASSWORD=cloudgaming
+DISPLAY=:1
 ```
-
-### Ports
-
-- **3002**: Backend API
-- **3003**: Frontend Web-Interface
-- **5900+**: VNC-Server (dynamisch)
-- **6080+**: noVNC Web-Interface (dynamisch)
-
-## 📋 API-Endpunkte
-
-### Authentifizierung
-- `POST /api/auth/register` - Benutzerregistrierung
-- `POST /api/auth/login` - Anmeldung
-- `POST /api/auth/logout` - Abmeldung
-- `GET /api/auth/validate` - Token-Validierung
-
-### Container-Management
-- `GET /api/containers` - Container auflisten
-- `POST /api/containers` - Container erstellen
-- `POST /api/containers/:id/start` - Container starten
-- `POST /api/containers/:id/stop` - Container stoppen
-- `DELETE /api/containers/:id` - Container löschen
-
-### Benutzer (Admin)
-- `GET /api/users` - Alle Benutzer (Admin)
-- `GET /api/users/profile` - Eigenes Profil
-- `GET /api/users/logs` - Aktivitätslogs
 
 ## 🛠️ Entwicklung
 
-### Backend entwickeln
-
+### Backend starten
 ```bash
 cd backend
 npm install
 npm run dev
 ```
 
-### Frontend entwickeln
-
+### Frontend starten
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Desktop-Image bauen
-
+### Desktop-Image entwickeln
 ```bash
 cd docker/desktop
-docker build -t cloud-gaming-desktop .
+docker build -t cloud-gaming-desktop:dev .
 ```
 
-## 📊 Monitoring
+## 📊 API-Endpunkte
 
-### Logs anzeigen
+### Authentifizierung
+- `POST /api/auth/register` - Benutzer registrieren
+- `POST /api/auth/login` - Anmelden
+- `POST /api/auth/logout` - Abmelden
 
-```bash
-# Alle Services
-docker-compose logs -f
+### Container-Management
+- `GET /api/containers` - Container abrufen
+- `POST /api/containers/create` - Container erstellen
+- `POST /api/containers/start` - Container starten
+- `POST /api/containers/stop` - Container stoppen
+- `DELETE /api/containers` - Container löschen
 
-# Einzelne Services
-docker-compose logs -f backend
-docker-compose logs -f frontend
-```
-
-### Container-Status
-
-```bash
-docker-compose ps
-docker stats
-```
+### Administration (Admin only)
+- `GET /api/admin/users` - Alle Benutzer
+- `GET /api/containers/logs` - Container-Logs
 
 ## 🔒 Sicherheit
 
-- **JWT-Authentifizierung** mit 24h Ablaufzeit
-- **bcrypt-Passwort-Hashing** (12 Runden)
-- **Container-Isolation** mit Ressourcenlimits
-- **Session-Management** mit Datenbank-Tracking
-- **Rate-Limiting** und Security-Header
+- **JWT-Token**: Sichere Authentifizierung
+- **Passwort-Hashing**: bcrypt für Passwort-Sicherheit
+- **Container-Isolation**: Jeder Benutzer hat eigenen Container
+- **Port-Isolation**: Automatische Port-Zuweisung verhindert Konflikte
+- **Admin-Rechte**: Erste Benutzer wird automatisch Administrator
 
 ## 🐛 Fehlerbehebung
 
-### Häufige Probleme
-
-**Port bereits belegt:**
+### Container startet nicht
 ```bash
-# Prüfen welcher Prozess den Port verwendet
-netstat -tulpn | grep :3002
-netstat -tulpn | grep :3003
-
-# Andere Ports verwenden
-docker-compose down
-# Ports in docker-compose.yml ändern
-docker-compose up -d
-```
-
-**Docker-Probleme:**
-```bash
-# Docker-Status prüfen
-docker info
-docker-compose ps
-
-# Container neu starten
-docker-compose restart
-
 # Logs prüfen
 docker-compose logs backend
+
+# Desktop-Image neu bauen
+./build-desktop-image.sh
 ```
 
-**Build-Fehler:**
+### VNC-Verbindung fehlgeschlagen
 ```bash
-# Clean build
-docker-compose down
-docker system prune -f
-docker-compose up --build -d
+# Container-Status prüfen
+docker ps
+
+# Port-Verfügbarkeit prüfen
+netstat -ln | grep 11000
 ```
 
-### Support
+### Datenbank-Probleme
+```bash
+# Datenbank zurücksetzen
+rm -rf data/database.sqlite
+docker-compose restart backend
+```
 
-Bei Problemen:
-1. Prüfen Sie die Logs: `docker-compose logs`
-2. Stellen Sie sicher, dass Docker läuft
-3. Prüfen Sie verfügbare Ports
-4. Überprüfen Sie Systemressourcen (RAM, Disk)
+## 📁 Projektstruktur
 
-## 📝 Lizenz
-
-MIT License - siehe LICENSE-Datei für Details.
+```
+cloud-gaming/
+├── backend/                 # Node.js API Server
+│   ├── routes/             # API-Routen
+│   ├── middleware/         # Auth & Validation
+│   ├── database/           # SQLite Setup
+│   └── utils/              # Hilfsfunktionen
+├── frontend/               # React Web-App
+│   ├── src/
+│   │   ├── pages/          # Seiten-Komponenten
+│   │   ├── components/     # UI-Komponenten
+│   │   ├── contexts/       # React Contexts
+│   │   └── services/       # API-Services
+├── docker/
+│   └── desktop/            # Desktop-Container
+│       ├── Dockerfile      # Ubuntu + XFCE4
+│       └── start-desktop.sh # Startup-Script
+├── data/                   # Persistente Daten
+└── docker-compose.yml     # Service-Orchestrierung
+```
 
 ## 🤝 Beitragen
 
-1. Fork des Repositories
-2. Feature-Branch erstellen
-3. Änderungen committen
-4. Pull Request erstellen
+1. Fork das Repository
+2. Erstellen Sie einen Feature-Branch
+3. Committen Sie Ihre Änderungen
+4. Erstellen Sie eine Pull Request
+
+## 📄 Lizenz
+
+MIT License - siehe LICENSE-Datei für Details.
+
+## 🆘 Support
+
+Bei Problemen oder Fragen:
+1. Prüfen Sie die Logs: `docker-compose logs`
+2. Überprüfen Sie die Dokumentation
+3. Erstellen Sie ein Issue im Repository
 
 ---
 
-**Entwickelt mit ❤️ für Cloud Gaming** 
+**Hinweis**: Dieses System ist für Entwicklungs- und Testzwecke konzipiert. Für Produktionsumgebungen sollten zusätzliche Sicherheitsmaßnahmen implementiert werden. 
