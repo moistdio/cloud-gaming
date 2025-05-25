@@ -162,23 +162,24 @@ RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula sele
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Steam installieren (robuster Ansatz mit mehreren Methoden)
-RUN echo "Installing Steam..." && \
-    # Methode 1: Über offizielle Steam .deb Datei
-    cd /tmp && \
-    wget -q https://steamcdn-a.akamaihd.net/client/installer/steam.deb && \
-    dpkg -i steam.deb || apt-get install -f -y && \
-    rm steam.deb && \
-    # Methode 2: Falls das fehlschlägt, über multiverse Repository
-    (dpkg -l | grep -q steam || (apt-get update && apt-get install -y steam)) && \
+# Steam direkt installieren (einfacher Ansatz)
+RUN echo "Installing Steam directly..." && \
+    # Steam über multiverse Repository installieren
+    apt-get update && \
+    apt-get install -y steam-installer && \
     # Steam-Verzeichnisse vorbereiten
     mkdir -p /home/user/.steam && \
     mkdir -p /home/user/.local/share/Steam && \
+    mkdir -p /home/user/.config/steam && \
     # Steam-Berechtigungen setzen
-    chown -R user:user /home/user/.steam /home/user/.local/share/Steam && \
+    chown -R user:user /home/user/.steam /home/user/.local/share/Steam /home/user/.config && \
+    # Steam-Konfiguration für Container-Optimierung
+    echo 'export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam' >> /home/user/.bashrc && \
+    echo 'export STEAM_RUNTIME=1' >> /home/user/.bashrc && \
+    echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /home/user/.bashrc && \
     # Verifizieren dass Steam installiert ist
-    which steam || echo "Steam installation may have issues" && \
-    echo "Steam installation completed"
+    which steam && \
+    echo "Steam installation completed successfully"
 
 # Zusätzliche Steam-Abhängigkeiten für Container-Kompatibilität
 RUN apt-get update && apt-get install -y \
@@ -337,7 +338,7 @@ RUN mkdir -p /home/user/Desktop && \
     echo 'Type=Application' >> /home/user/Desktop/Steam.desktop && \
     echo 'Name=Steam' >> /home/user/Desktop/Steam.desktop && \
     echo 'Comment=Application for managing and playing games on Steam' >> /home/user/Desktop/Steam.desktop && \
-    echo 'Exec=/usr/local/bin/steam-wrapper.sh' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Exec=steam' >> /home/user/Desktop/Steam.desktop && \
     echo 'Icon=steam' >> /home/user/Desktop/Steam.desktop && \
     echo 'Terminal=false' >> /home/user/Desktop/Steam.desktop && \
     echo 'Categories=Game;' >> /home/user/Desktop/Steam.desktop && \

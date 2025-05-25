@@ -265,9 +265,22 @@ sleep 2
 # Start window manager as user
 sudo -u user DISPLAY=$DISPLAY /home/user/.vnc/xstartup &
 
-# Initialize Steam for first-time use
-echo "🎮 Initializing Steam..."
-/usr/local/bin/steam-init.sh &
+# Initialize Steam environment for first-time use
+echo "🎮 Setting up Steam environment..."
+# Ensure Steam directories exist with proper permissions
+sudo -u user mkdir -p /home/user/.steam /home/user/.local/share/Steam /home/user/.config/steam
+sudo -u user bash -c "
+export HOME=/home/user
+export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam
+export STEAM_RUNTIME=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export PULSE_SERVER='unix:/tmp/pulse-native'
+# Create basic Steam config if it doesn't exist
+if [ ! -f /home/user/.steam/config/config.vdf ]; then
+    mkdir -p /home/user/.steam/config
+    echo 'Steam environment ready for first use'
+fi
+" &
 
 # Start x11vnc to provide VNC access to the Xvfb display
 echo "🚀 Starting x11vnc on port $VNC_PORT..."
