@@ -93,6 +93,26 @@ router.get('/', async (req, res) => {
     // Aktuellen Container-Status prüfen
     const status = await getContainerStatus(container.container_id);
     
+    // Wenn Container nicht existiert, aus Datenbank entfernen
+    if (status === 'not_found') {
+      console.log(`Container ${container.container_id} existiert nicht mehr, entferne aus Datenbank`);
+      await new Promise((resolve, reject) => {
+        db.run(
+          'DELETE FROM containers WHERE id = ?',
+          [container.id],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+      
+      return res.json({
+        container: null,
+        message: 'Kein Container vorhanden'
+      });
+    }
+    
     // Status in Datenbank aktualisieren falls unterschiedlich
     if (status !== container.status) {
       await new Promise((resolve, reject) => {
