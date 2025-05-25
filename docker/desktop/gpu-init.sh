@@ -231,6 +231,14 @@ configure_x11() {
     # Xorg-Konfiguration erstellen
     mkdir -p /etc/X11/xorg.conf.d
     
+    # Dummy EDID für headless GPU erstellen
+    if command -v nvidia-smi &> /dev/null; then
+        log_info "Creating dummy EDID for headless GPU..."
+        # Erstelle eine minimale EDID-Datei für 1920x1080@60Hz
+        echo -en '\x00\xFF\xFF\xFF\xFF\xFF\xFF\x00\x10\xAC\x64\x40\x4C\x30\x30\x30\x0C\x16\x01\x03\x80\x34\x20\x78\xEA\xEE\x95\xA3\x54\x4C\x99\x26\x0F\x50\x54\xA5\x4B\x00\xB3\x00\xD1\x00\xA9\x40\x81\x80\x81\x40\x81\xC0\x01\x01\x01\x01\x02\x3A\x80\x18\x71\x38\x2D\x40\x58\x2C\x45\x00\x09\x25\x21\x00\x00\x1E\x01\x1D\x00\x72\x51\xD0\x1E\x20\x6E\x28\x55\x00\x09\x25\x21\x00\x00\x1E\x8C\x0A\xD0\x8A\x20\xE0\x2D\x10\x10\x3E\x96\x00\x13\x8E\x21\x00\x00\x18\x00\x00\x00\xFC\x00\x44\x45\x4C\x4C\x20\x55\x32\x34\x31\x32\x4D\x0A\x20\x00\x00\x00\xFD\x00\x38\x4C\x1E\x51\x11\x00\x0A\x20\x20\x20\x20\x20\x20\x00\x8D' > /etc/X11/edid.bin
+        log_success "Dummy EDID created"
+    fi
+    
     if command -v nvidia-smi &> /dev/null; then
         # NVIDIA-spezifische Konfiguration
         cat > /etc/X11/xorg.conf.d/20-nvidia.conf << EOF
@@ -258,9 +266,72 @@ Section "Device"
     Option "UseEdidDpi" "false"
     Option "DPI" "96 x 96"
     Option "NoLogo" "true"
+    Option "ConnectedMonitor" "DFP"
+    Option "CustomEDID" "DFP-0:/etc/X11/edid.bin"
+    Option "IgnoreEDID" "false"
+    Option "ModeValidation" "AllowNonEdidModes"
+EndSection
+
+Section "Extensions"
+    Option "GLX" "Enable"
+EndSection
+
+Section "ServerFlags"
+    Option "AllowEmptyInput" "on"
+    Option "DefaultServerLayout" "Layout0"
 EndSection
 EOF
         log_success "NVIDIA X11 configuration created"
+        
+        # NVIDIA GLX-Bibliotheken konfigurieren
+        log_info "Configuring NVIDIA GLX libraries..."
+        
+        # Stelle sicher, dass NVIDIA GLX verwendet wird
+        if [ -f "/usr/lib/x86_64-linux-gnu/libGL.so.1" ]; then
+            # Backup der Mesa GLX-Bibliothek
+            if [ ! -f "/usr/lib/x86_64-linux-gnu/libGL.so.1.mesa" ]; then
+                cp /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so.1.mesa 2>/dev/null || true
+            fi
+            
+            # Verlinke NVIDIA GLX
+            if [ -f "/usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1" ]; then
+                ln -sf /usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so.1
+                log_success "NVIDIA GLX libraries configured"
+            elif [ -f "/usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia" ]; then
+                ln -sf /usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia /usr/lib/x86_64-linux-gnu/libGL.so.1
+                log_success "NVIDIA GLX libraries configured"
+            else
+                log_warning "NVIDIA GLX libraries not found, using Mesa fallback"
+            fi
+        fi
+        
+        # Vulkan ICD für NVIDIA konfigurieren
+        log_info "Configuring NVIDIA Vulkan ICD..."
+        mkdir -p /usr/share/vulkan/icd.d
+        cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "libGLX_nvidia.so.0",
+        "api_version": "1.3.0"
+    }
+}
+EOF
+        
+        # Alternative Vulkan-Konfiguration falls die erste nicht funktioniert
+        if [ -f "/usr/lib/x86_64-linux-gnu/libvulkan_nvidia.so" ]; then
+            cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "libvulkan_nvidia.so",
+        "api_version": "1.3.0"
+    }
+}
+EOF
+        fi
+        
+        log_success "NVIDIA Vulkan ICD configured"
     else
         # Generische GPU-Konfiguration
         cat > /etc/X11/xorg.conf.d/20-gpu.conf << EOF
