@@ -43,6 +43,8 @@ RUN apt-get update && apt-get install -y \
     freeglut3-dev \
     # System-Tools
     sudo \
+    pciutils \
+    lshw \
     # Netzwerk-Tools
     net-tools \
     curl \
@@ -121,6 +123,8 @@ RUN echo "/usr/lib/x86_64-linux-gnu/nvidia" > /etc/ld.so.conf.d/nvidia.conf && \
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y software-properties-common && \
+    # Multiverse Repository für Steam aktivieren
+    add-apt-repository multiverse && \
     apt-get update
 
 # Gaming Software installieren (mit Fehlerbehandlung)
@@ -158,11 +162,23 @@ RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula sele
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Steam manuell installieren (robuster Ansatz)
-RUN cd /tmp && \
+# Steam installieren (robuster Ansatz mit mehreren Methoden)
+RUN echo "Installing Steam..." && \
+    # Methode 1: Über offizielle Steam .deb Datei
+    cd /tmp && \
     wget -q https://steamcdn-a.akamaihd.net/client/installer/steam.deb && \
     dpkg -i steam.deb || apt-get install -f -y && \
-    rm steam.deb || true
+    rm steam.deb && \
+    # Methode 2: Falls das fehlschlägt, über multiverse Repository
+    (dpkg -l | grep -q steam || (apt-get update && apt-get install -y steam)) && \
+    # Steam-Verzeichnisse vorbereiten
+    mkdir -p /home/user/.steam && \
+    mkdir -p /home/user/.local/share/Steam && \
+    # Steam-Berechtigungen setzen
+    chown -R user:user /home/user/.steam /home/user/.local/share/Steam && \
+    # Verifizieren dass Steam installiert ist
+    which steam || echo "Steam installation may have issues" && \
+    echo "Steam installation completed"
 
 # Zusätzliche Steam-Abhängigkeiten für Container-Kompatibilität
 RUN apt-get update && apt-get install -y \
@@ -314,8 +330,24 @@ RUN mkdir -p /etc/X11/xorg.conf.d && \
     Option "UseDisplayDevice" "None"\n\
 EndSection' > /etc/X11/xorg.conf.d/10-nvidia.conf
 
+# Steam Desktop-Shortcut erstellen
+RUN mkdir -p /home/user/Desktop && \
+    echo '[Desktop Entry]' > /home/user/Desktop/Steam.desktop && \
+    echo 'Version=1.0' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Type=Application' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Name=Steam' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Comment=Application for managing and playing games on Steam' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Exec=/usr/local/bin/steam-wrapper.sh' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Icon=steam' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Terminal=false' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Categories=Game;' >> /home/user/Desktop/Steam.desktop && \
+    echo 'StartupNotify=true' >> /home/user/Desktop/Steam.desktop && \
+    echo 'MimeType=x-scheme-handler/steam;' >> /home/user/Desktop/Steam.desktop
+
 # Berechtigungen setzen
-RUN chown -R user:user /home/user/.config
+RUN chown -R user:user /home/user/.config && \
+    chown -R user:user /home/user/Desktop && \
+    chmod +x /home/user/Desktop/Steam.desktop
 
 # GPU-Initialisierungs-Script erstellen
 COPY gpu-init.sh /usr/local/bin/gpu-init.sh
