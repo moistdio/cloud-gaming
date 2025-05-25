@@ -31,8 +31,8 @@ async function initDatabase() {
       
       logger.info(`Datenbank verbunden: ${DB_PATH}`);
       
-      // Tabellen erstellen
-      createTables()
+      // Tabellen erstellen und migrieren
+      createTablesAndMigrate()
         .then(() => {
           logger.info('Datenbank erfolgreich initialisiert');
           resolve();
@@ -42,16 +42,15 @@ async function initDatabase() {
   });
 }
 
-async function createTables() {
+async function createTablesAndMigrate() {
   return new Promise((resolve, reject) => {
     const queries = [
-      // Benutzer-Tabelle mit Admin-Rolle
+      // Benutzer-Tabelle (ohne is_admin erstmal)
       `CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        is_admin BOOLEAN DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_active BOOLEAN DEFAULT 1,
@@ -110,10 +109,51 @@ async function createTables() {
         
         completed++;
         if (completed === total) {
-          // Indizes erstellen
-          createIndexes()
+          // Nach dem Erstellen der Tabellen, Migrationen durchführen
+          runMigrations()
+            .then(() => createIndexes())
             .then(resolve)
             .catch(reject);
+        }
+      });
+    });
+  });
+}
+
+async function runMigrations() {
+  return new Promise((resolve, reject) => {
+    logger.info('Führe Datenbankmigrationen durch...');
+    
+    // Prüfe ob is_admin Spalte existiert
+    db.get("PRAGMA table_info(users)", (err, result) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Prüfe alle Spalten der users Tabelle
+      db.all("PRAGMA table_info(users)", (err, columns) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        const hasIsAdmin = columns.some(col => col.name === 'is_admin');
+        
+        if (!hasIsAdmin) {
+          logger.info('Füge is_admin Spalte zur users Tabelle hinzu...');
+          db.run("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0", (err) => {
+            if (err) {
+              logger.error('Fehler beim Hinzufügen der is_admin Spalte:', err);
+              reject(err);
+              return;
+            }
+            logger.info('is_admin Spalte erfolgreich hinzugefügt');
+            resolve();
+          });
+        } else {
+          logger.info('is_admin Spalte existiert bereits');
+          resolve();
         }
       });
     });
