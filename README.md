@@ -2,6 +2,20 @@
 
 Ein System, das es Benutzern ermöglicht, eigene Docker-Container mit VNC-Zugang zu virtuellen Desktops zu erstellen und zu verwalten.
 
+## 🚀 Schnellstart
+
+### Windows
+```powershell
+.\setup.ps1
+```
+
+### Linux/Mac
+```bash
+./setup.sh
+```
+
+Das war's! Das Script richtet alles automatisch ein.
+
 ## Features
 
 - 🖥️ Individuelle Docker-Container pro Benutzer
@@ -19,23 +33,87 @@ Ein System, das es Benutzern ermöglicht, eigene Docker-Container mit VNC-Zugang
 - **Database**: SQLite für Benutzerdaten
 - **Proxy**: nginx für VNC-Weiterleitung
 
-## Installation
+## Zugriff
 
-1. Docker und Docker Compose installieren
-2. Repository klonen
-3. `docker-compose up -d` ausführen
-4. Web-Interface unter `http://localhost:3000` aufrufen
+Nach dem Setup:
+- **Web-Interface**: http://localhost:3000
+- **Backend-API**: http://localhost:3001
 
-## Verwendung
+## Erste Schritte
 
-1. Registrierung/Anmeldung über Web-Interface
-2. Container erstellen und starten
-3. VNC-Verbindung über Browser oder VNC-Client
-4. Virtuellen Desktop verwenden
+1. Öffne http://localhost:3000
+2. Registriere einen Account (Login-Seite → "Jetzt registrieren")
+3. Erstelle einen Container im Dashboard
+4. Verbinde dich via VNC oder Web-VNC
+
+## VNC-Zugriff
+
+Jeder Container erhält:
+- **VNC-Port**: 5901+ (für VNC-Clients)
+- **Web-VNC**: 6081+ (direkt im Browser)
+
+### VNC-Clients
+- **Windows**: TightVNC, RealVNC
+- **Mac**: Screen Sharing, RealVNC  
+- **Linux**: Remmina, TigerVNC
+
+## Verwaltung
+
+```bash
+# Logs anzeigen
+docker-compose logs -f
+
+# System stoppen
+docker-compose down
+
+# System neustarten
+docker-compose restart
+
+# Container-Status prüfen
+docker ps
+```
+
+## Troubleshooting
+
+### System startet nicht
+```bash
+# Prüfe Docker
+docker --version
+
+# Prüfe Logs
+docker-compose logs
+
+# Ports prüfen
+netstat -an | findstr "3000 3001"
+```
+
+### Container-Probleme
+```bash
+# Desktop Image neu bauen
+docker build -t cloud-gaming-desktop:latest docker/desktop/
+
+# Alle Container stoppen
+docker stop $(docker ps -q)
+```
+
+## Erweiterte Konfiguration
+
+Siehe `SETUP.md` für:
+- Detaillierte Installationsanweisungen
+- Sicherheitskonfiguration
+- Entwicklungsumgebung
+- Backup-Strategien
+- Skalierung
 
 ## Ports
 
 - 3000: Web-Interface
 - 3001: Backend-API
-- 6080+: VNC-Web-Clients (dynamisch zugewiesen)
-- 5900+: VNC-Server (dynamisch zugewiesen) 
+- 5900+: VNC-Server (dynamisch)
+- 6080+: Web-VNC (dynamisch)
+
+## Systemanforderungen
+
+- Docker & Docker Compose
+- 4GB+ RAM verfügbar
+- Windows 10/11, macOS, oder Linux 
