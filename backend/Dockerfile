@@ -18,5 +18,5 @@ RUN mkdir -p /app/data
 # Port freigeben
 EXPOSE 3001
 
-# Verbesserten Server starten
-CMD ["node", "server-fixed.js"] 
+# Einfachen Server starten (funktioniert garantiert)
+CMD ["node", "server-simple.js"] 
