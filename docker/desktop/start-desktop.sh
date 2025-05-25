@@ -263,6 +263,10 @@ sleep 2
 # Start window manager as user
 sudo -u user DISPLAY=$DISPLAY /home/user/.vnc/xstartup &
 
+# Initialize Steam for first-time use
+echo "🎮 Initializing Steam..."
+/usr/local/bin/steam-init.sh &
+
 # Start x11vnc to provide VNC access to the Xvfb display
 echo "🚀 Starting x11vnc on port $VNC_PORT..."
 x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -bg

@@ -164,6 +164,25 @@ RUN cd /tmp && \
     dpkg -i steam.deb || apt-get install -f -y && \
     rm steam.deb || true
 
+# Zusätzliche Steam-Abhängigkeiten für Container-Kompatibilität
+RUN apt-get update && apt-get install -y \
+    # CEF/Chromium-Abhängigkeiten für steamwebhelper
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    # Zusätzliche Steam-Runtime-Abhängigkeiten
+    libgpg-error0 \
+    libxml2 \
+    libxslt1.1 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # MangoHud separat installieren (falls verfügbar)
 RUN apt-get update && \
     (apt-get install -y mangohud || echo "MangoHud not available, skipping...") && \
@@ -299,6 +318,10 @@ RUN chmod +x /usr/local/bin/gpu-init.sh
 # Steam-Wrapper-Script kopieren
 COPY steam-wrapper.sh /usr/local/bin/steam-wrapper.sh
 RUN chmod +x /usr/local/bin/steam-wrapper.sh
+
+# Steam-Initialisierungs-Script kopieren
+COPY steam-init.sh /usr/local/bin/steam-init.sh
+RUN chmod +x /usr/local/bin/steam-init.sh
 
 # Startup-Script kopieren
 COPY start-desktop.sh /usr/local/bin/start-desktop.sh
