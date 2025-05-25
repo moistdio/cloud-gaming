@@ -22,8 +22,8 @@ RUN apt-get update && apt-get install -y \
     xfce4 \
     xfce4-goodies \
     xfce4-terminal \
-    # VNC-Server (TurboVNC für bessere GPU-Unterstützung)
-    wget \
+    # VNC-Server
+    tightvncserver \
     # X11 und Fonts
     xfonts-base \
     xfonts-75dpi \
@@ -72,11 +72,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# TurboVNC installieren (bessere GPU-Unterstützung als TightVNC)
-RUN cd /tmp && \
-    wget https://sourceforge.net/projects/turbovnc/files/3.0.3/turbovnc_3.0.3_amd64.deb/download -O turbovnc.deb && \
-    dpkg -i turbovnc.deb || apt-get install -f -y && \
-    rm turbovnc.deb
 
 # NVIDIA Container Toolkit Repository hinzufügen
 RUN curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -252,6 +247,8 @@ RUN apt-get update && apt-get install -y \
     mesa-utils-extra \
     # Zusätzliche GPU-Test-Tools
     x11-apps \
+    # VirtualGL für OpenGL über VNC
+    virtualgl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

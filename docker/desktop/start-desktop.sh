@@ -120,8 +120,8 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export PATH=/usr/local/cuda/bin:\$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
 
-# Start XFCE4 Desktop with GPU acceleration
-startxfce4 &
+# Start XFCE4 Desktop with GPU acceleration via VirtualGL
+vglrun startxfce4 &
 EOF
 
 chmod +x /home/user/.vnc/xstartup
@@ -131,7 +131,7 @@ chown user:user /home/user/.vnc/xstartup
 echo "🚀 Starting VNC Server on port $VNC_PORT..."
 
 # Zuerst alle bestehenden VNC-Server stoppen
-/opt/TurboVNC/bin/vncserver -kill $DISPLAY 2>/dev/null || true
+vncserver -kill $DISPLAY 2>/dev/null || true
 
 # VNC-Server als user starten mit GPU-Unterstützung
 # Erstelle Xorg-Konfiguration für GPU
@@ -167,8 +167,8 @@ Section "Extensions"
 EndSection
 EOF
 
-# VNC-Server mit GPU-Unterstützung starten (TurboVNC)
-sudo -u user HOME=/home/user /opt/TurboVNC/bin/vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -xstartup /home/user/.vnc/xstartup
+# VNC-Server mit GPU-Unterstützung starten
+sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
 
 # noVNC Web-Interface starten
 echo "🌐 Starting noVNC Web Interface on port $WEB_VNC_PORT..."
@@ -241,7 +241,7 @@ cleanup() {
     echo "🛑 Shutting down Cloud Gaming Desktop..."
     
     # VNC-Server stoppen
-    sudo -u user HOME=/home/user /opt/TurboVNC/bin/vncserver -kill $DISPLAY || true
+    sudo -u user HOME=/home/user vncserver -kill $DISPLAY || true
     
     # noVNC stoppen
     pkill -f novnc_proxy || true
@@ -266,7 +266,7 @@ while true; do
         # VNC-Server neu starten falls nötig
         if ! netstat -ln | grep -q ":$VNC_PORT "; then
             echo "🔄 Restarting VNC Server..."
-            sudo -u user HOME=/home/user /opt/TurboVNC/bin/vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -xstartup /home/user/.vnc/xstartup
+            sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
         fi
         
         # noVNC neu starten falls nötig
