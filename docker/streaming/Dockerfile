@@ -21,6 +21,13 @@ RUN apt-get update && apt-get install -y \
     mesa-utils \
     vainfo \
     vdpauinfo \
+    xterm \
+    firefox \
+    pcmanfm \
+    gedit \
+    htop \
+    vim \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Add multiverse repository for steam
