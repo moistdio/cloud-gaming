@@ -18,6 +18,11 @@ else
     echo "✅ Steam will run with sandbox disabled"
 fi
 
+# Start D-Bus for system services
+echo "🔧 Starting D-Bus system service..."
+mkdir -p /run/dbus
+dbus-daemon --system --fork --print-pid --print-address 2>/dev/null || echo "D-Bus may already be running"
+
 # Setup PulseAudio for Steam audio
 echo "🔊 Setting up PulseAudio for Steam..."
 

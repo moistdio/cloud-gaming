@@ -105,6 +105,12 @@ RUN apt-get update && apt-get install -y \
     libnvidia-gl-535 \
     libnvidia-encode-535 \
     libnvidia-decode-535 \
+    # GLVND (GL Vendor Neutral Dispatch) Libraries
+    libglvnd0 \
+    libglvnd-dev \
+    libgl1 \
+    libglx0 \
+    libegl1 \
     # Mesa GLX Libraries (für Fallback)
     libgl1-mesa-dri \
     libglx-mesa0 \

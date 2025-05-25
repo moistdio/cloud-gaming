@@ -288,6 +288,8 @@ EOF
         
         # Prüfe verfügbare NVIDIA GLX-Bibliotheken
         NVIDIA_GLX_PATHS=(
+            "/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0"
+            "/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.575.51.03"
             "/usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1"
             "/usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia"
             "/usr/lib/nvidia/libGL.so.1"
@@ -306,18 +308,37 @@ EOF
         if [ -n "$NVIDIA_GLX_FOUND" ]; then
             log_info "Found NVIDIA GLX library: $NVIDIA_GLX_FOUND"
             
-            # Backup Mesa GLX falls vorhanden
-            if [ -f "/usr/lib/x86_64-linux-gnu/libGL.so.1" ] && [ ! -f "/usr/lib/x86_64-linux-gnu/libGL.so.1.mesa" ]; then
-                cp /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so.1.mesa 2>/dev/null || true
+            # Configure GLVND (GL Vendor Neutral Dispatch) for NVIDIA
+            log_info "Configuring GLVND for NVIDIA..."
+            
+            # Create GLX vendor directory if it doesn't exist
+            mkdir -p /usr/share/glvnd/glx_vendor.d
+            
+            # Create NVIDIA GLX vendor configuration
+            cat > /usr/share/glvnd/glx_vendor.d/10_nvidia.json << EOF
+{
+    "file_format_version" : "1.0.0",
+    "vendor_name" : "NVIDIA",
+    "library_path" : "libGLX_nvidia.so.0"
+}
+EOF
+            
+            # Also create the EGL vendor configuration if it doesn't exist
+            mkdir -p /usr/share/glvnd/egl_vendor.d
+            if [ ! -f "/usr/share/glvnd/egl_vendor.d/10_nvidia.json" ]; then
+                cat > /usr/share/glvnd/egl_vendor.d/10_nvidia.json << EOF
+{
+    "file_format_version" : "1.0.0",
+    "vendor_name" : "NVIDIA",
+    "library_path" : "libEGL_nvidia.so.0"
+}
+EOF
             fi
             
-            # Verlinke NVIDIA GLX
-            ln -sf "$NVIDIA_GLX_FOUND" /usr/lib/x86_64-linux-gnu/libGL.so.1
-            
-            # LD-Cache aktualisieren
+            # Update LD cache
             ldconfig
             
-            log_success "NVIDIA GLX libraries configured"
+            log_success "NVIDIA GLVND configuration created"
         else
             log_warning "NVIDIA GLX libraries not found, checking alternatives..."
             
@@ -380,7 +401,18 @@ EOF
             "/usr/lib/nvidia/libvulkan_nvidia.so"
             "/usr/lib/x86_64-linux-gnu/nvidia/nvidia_icd.json"
             "/usr/share/vulkan/icd.d/nvidia_icd.json"
+            "/usr/lib/x86_64-linux-gnu/nvidia_icd.json"
         )
+        
+        # Zusätzlich: Suche nach NVIDIA Vulkan-Bibliotheken mit find
+        log_info "Searching for NVIDIA Vulkan libraries..."
+        FOUND_VULKAN_LIBS=$(find /usr/lib -name "*vulkan*nvidia*" -type f 2>/dev/null || true)
+        if [ ! -z "$FOUND_VULKAN_LIBS" ]; then
+            log_info "Found NVIDIA Vulkan libraries:"
+            echo "$FOUND_VULKAN_LIBS" | while read lib; do
+                echo "  • $lib"
+            done
+        fi
         
         NVIDIA_VULKAN_LIB=""
         NVIDIA_ICD_JSON=""
@@ -400,8 +432,12 @@ EOF
         # Erstelle NVIDIA Vulkan ICD Konfiguration
         if [ ! -z "$NVIDIA_ICD_JSON" ]; then
             # Verwende existierende ICD-Konfiguration
-            cp "$NVIDIA_ICD_JSON" /usr/share/vulkan/icd.d/nvidia_icd.json
-            cp "$NVIDIA_ICD_JSON" /etc/vulkan/icd.d/nvidia_icd.json
+            if [ "$NVIDIA_ICD_JSON" != "/usr/share/vulkan/icd.d/nvidia_icd.json" ]; then
+                cp "$NVIDIA_ICD_JSON" /usr/share/vulkan/icd.d/nvidia_icd.json
+            fi
+            if [ "$NVIDIA_ICD_JSON" != "/etc/vulkan/icd.d/nvidia_icd.json" ]; then
+                cp "$NVIDIA_ICD_JSON" /etc/vulkan/icd.d/nvidia_icd.json
+            fi
             log_success "NVIDIA Vulkan ICD configured from existing file: $NVIDIA_ICD_JSON"
         elif [ ! -z "$NVIDIA_VULKAN_LIB" ]; then
             # Erstelle ICD-Konfiguration basierend auf gefundener Bibliothek
