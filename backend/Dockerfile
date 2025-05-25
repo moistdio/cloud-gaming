@@ -18,9 +18,5 @@ RUN mkdir -p /app/data
 # Port freigeben
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js
-
 # App starten
 CMD ["npm", "start"] 
