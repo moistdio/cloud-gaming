@@ -71,6 +71,10 @@ RUN apt-get update && apt-get install -y \
     # Hardware-beschleunigte Video-Codecs
     vainfo \
     vdpauinfo \
+    # Audio-Support für Steam
+    pulseaudio \
+    pulseaudio-utils \
+    alsa-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

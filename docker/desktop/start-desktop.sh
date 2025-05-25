@@ -7,6 +7,17 @@ set -e
 
 echo "🖥️ Starting Cloud Gaming Desktop..."
 
+# Enable user namespaces for Steam and other applications
+echo "🔧 Enabling user namespaces for Steam compatibility..."
+echo 1 > /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo "⚠️ Could not enable user namespaces (may require privileged container)"
+
+# Setup PulseAudio for Steam audio
+echo "🔊 Setting up audio for Steam..."
+mkdir -p /var/run/pulse
+chmod 755 /var/run/pulse
+# Start PulseAudio in system mode
+pulseaudio --system --disallow-exit --disallow-module-loading --disable-shm &
+
 # GPU-Initialisierung ausführen
 echo "🎮 Initializing GPU hardware..."
 if [ -f "/usr/local/bin/gpu-init.sh" ]; then
@@ -113,10 +124,15 @@ export __GL_SYNC_TO_VBLANK=1
 export __GL_YIELD="USLEEP"
 export VDPAU_DRIVER=nvidia
 
-# NVIDIA GLX-spezifische Umgebungsvariablen
+# NVIDIA GLX-spezifische Umgebungsvariablen (CRITICAL for hardware acceleration)
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export __GL_SHADER_DISK_CACHE=1
 export __GL_THREADED_OPTIMIZATIONS=1
+
+# Steam-spezifische Umgebungsvariablen
+export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam
+export STEAM_COMPAT_DATA_PATH=/home/user/.steam/steam
+export PULSE_RUNTIME_PATH=/var/run/pulse
 
 # Vulkan-Support
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
@@ -277,6 +293,9 @@ cleanup() {
     
     # Stop password monitor
     pkill -f monitor_password_changes || true
+    
+    # Stop PulseAudio
+    pkill pulseaudio || true
     
     echo "✅ Shutdown complete"
     exit 0
