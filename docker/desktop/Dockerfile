@@ -98,10 +98,20 @@ RUN apt-get update && apt-get install -y \
     libnvidia-gl-535 \
     libnvidia-encode-535 \
     libnvidia-decode-535 \
+    # NVIDIA GLX Libraries (wichtig für OpenGL)
+    libnvidia-gl-535:i386 \
+    libgl1-mesa-dri \
+    libglx-mesa0 \
+    libgl1-mesa-glx \
     # GPU Monitoring Tools (jetzt verfügbar)
     nvtop \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# NVIDIA GLX-Konfiguration für Container
+RUN echo "/usr/lib/x86_64-linux-gnu/nvidia" > /etc/ld.so.conf.d/nvidia.conf && \
+    echo "/usr/lib/i386-linux-gnu/nvidia" >> /etc/ld.so.conf.d/nvidia.conf && \
+    ldconfig
 
 # Gaming und Multimedia Software installieren
 # Steam Repository hinzufügen für bessere Kompatibilität

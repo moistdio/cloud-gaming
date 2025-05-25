@@ -286,22 +286,77 @@ EOF
         # NVIDIA GLX-Bibliotheken konfigurieren
         log_info "Configuring NVIDIA GLX libraries..."
         
-        # Stelle sicher, dass NVIDIA GLX verwendet wird
-        if [ -f "/usr/lib/x86_64-linux-gnu/libGL.so.1" ]; then
-            # Backup der Mesa GLX-Bibliothek
-            if [ ! -f "/usr/lib/x86_64-linux-gnu/libGL.so.1.mesa" ]; then
+        # Prüfe verfügbare NVIDIA GLX-Bibliotheken
+        NVIDIA_GLX_PATHS=(
+            "/usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1"
+            "/usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia"
+            "/usr/lib/nvidia/libGL.so.1"
+        )
+        
+        NVIDIA_GLX_FOUND=""
+        for path in "${NVIDIA_GLX_PATHS[@]}"; do
+            if [ -f "$path" ]; then
+                NVIDIA_GLX_FOUND="$path"
+                break
+            fi
+        done
+        
+        if [ -n "$NVIDIA_GLX_FOUND" ]; then
+            log_info "Found NVIDIA GLX library: $NVIDIA_GLX_FOUND"
+            
+            # Backup Mesa GLX falls vorhanden
+            if [ -f "/usr/lib/x86_64-linux-gnu/libGL.so.1" ] && [ ! -f "/usr/lib/x86_64-linux-gnu/libGL.so.1.mesa" ]; then
                 cp /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so.1.mesa 2>/dev/null || true
             fi
             
             # Verlinke NVIDIA GLX
-            if [ -f "/usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1" ]; then
-                ln -sf /usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so.1
-                log_success "NVIDIA GLX libraries configured"
-            elif [ -f "/usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia" ]; then
-                ln -sf /usr/lib/x86_64-linux-gnu/libGL.so.1.nvidia /usr/lib/x86_64-linux-gnu/libGL.so.1
-                log_success "NVIDIA GLX libraries configured"
-            else
-                log_warning "NVIDIA GLX libraries not found, using Mesa fallback"
+            ln -sf "$NVIDIA_GLX_FOUND" /usr/lib/x86_64-linux-gnu/libGL.so.1
+            
+            # Auch für 32-bit falls vorhanden
+            NVIDIA_GLX_32="${NVIDIA_GLX_FOUND/x86_64-linux-gnu/i386-linux-gnu}"
+            if [ -f "$NVIDIA_GLX_32" ]; then
+                ln -sf "$NVIDIA_GLX_32" /usr/lib/i386-linux-gnu/libGL.so.1 2>/dev/null || true
+            fi
+            
+            # LD-Cache aktualisieren
+            ldconfig
+            
+            log_success "NVIDIA GLX libraries configured"
+        else
+            log_warning "NVIDIA GLX libraries not found, checking alternatives..."
+            
+            # Prüfe ob NVIDIA-Treiber verfügbar sind
+            if command -v nvidia-smi &> /dev/null; then
+                log_info "NVIDIA driver available, but GLX libraries missing"
+                log_info "This might be resolved by installing libnvidia-gl packages"
+            fi
+            
+            log_warning "Using Mesa fallback for OpenGL"
+        fi
+        
+        # Prüfe GLX-Konfiguration
+        if command -v glxinfo &> /dev/null; then
+            log_info "Testing GLX configuration..."
+            export DISPLAY=:99
+            if command -v Xvfb &> /dev/null; then
+                Xvfb :99 -screen 0 1024x768x24 &
+                XVFB_PID=$!
+                sleep 2
+                
+                GLX_VENDOR=$(glxinfo 2>/dev/null | grep "server glx vendor string" | cut -d: -f2 | xargs || echo "Unknown")
+                GLX_RENDERER=$(glxinfo 2>/dev/null | grep "OpenGL renderer string" | cut -d: -f2 | xargs || echo "Unknown")
+                
+                if [[ "$GLX_VENDOR" == *"NVIDIA"* ]] || [[ "$GLX_RENDERER" == *"NVIDIA"* ]]; then
+                    log_success "NVIDIA GLX acceleration active"
+                    echo "  • GLX Vendor: $GLX_VENDOR"
+                    echo "  • Renderer: $GLX_RENDERER"
+                else
+                    log_warning "GLX using software rendering"
+                    echo "  • GLX Vendor: $GLX_VENDOR"
+                    echo "  • Renderer: $GLX_RENDERER"
+                fi
+                
+                kill $XVFB_PID 2>/dev/null || true
             fi
         fi
         

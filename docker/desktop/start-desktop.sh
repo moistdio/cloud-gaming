@@ -113,12 +113,17 @@ export __GL_SYNC_TO_VBLANK=1
 export __GL_YIELD="USLEEP"
 export VDPAU_DRIVER=nvidia
 
+# NVIDIA GLX-spezifische Umgebungsvariablen
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export __GL_SHADER_DISK_CACHE=1
+export __GL_THREADED_OPTIMIZATIONS=1
+
 # Vulkan-Support
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 
 # CUDA-Pfade
 export PATH=/usr/local/cuda/bin:\$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu/nvidia:\$LD_LIBRARY_PATH
 
 # Start XFCE4 Desktop with GPU acceleration via VirtualGL (if available)
 if command -v vglrun >/dev/null 2>&1; then
