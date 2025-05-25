@@ -220,7 +220,15 @@ router.post('/create', async (req, res) => {
         `NVIDIA_DRIVER_CAPABILITIES=all`,
         `NVIDIA_REQUIRE_CUDA=cuda>=11.0`,
         `LIBGL_ALWAYS_INDIRECT=0`,
-        `LIBGL_ALWAYS_SOFTWARE=0`
+        `LIBGL_ALWAYS_SOFTWARE=0`,
+        // OpenGL-spezifische Umgebungsvariablen
+        `__GL_SYNC_TO_VBLANK=1`,
+        `__GL_YIELD=USLEEP`,
+        `VDPAU_DRIVER=nvidia`,
+        `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json`,
+        // X11-Konfiguration für GPU
+        `XORG_DRI_DRIVER_PATH=/usr/lib/x86_64-linux-gnu/dri`,
+        `LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu`
       ],
       ExposedPorts: {
         [`${vncPort}/tcp`]: {},
@@ -250,6 +258,21 @@ router.post('/create', async (req, res) => {
           {
             PathOnHost: '/dev/dri',
             PathInContainer: '/dev/dri',
+            CgroupPermissions: 'rwm'
+          },
+          {
+            PathOnHost: '/dev/nvidia0',
+            PathInContainer: '/dev/nvidia0',
+            CgroupPermissions: 'rwm'
+          },
+          {
+            PathOnHost: '/dev/nvidiactl',
+            PathInContainer: '/dev/nvidiactl',
+            CgroupPermissions: 'rwm'
+          },
+          {
+            PathOnHost: '/dev/nvidia-uvm',
+            PathInContainer: '/dev/nvidia-uvm',
             CgroupPermissions: 'rwm'
           }
         ],
