@@ -11,6 +11,8 @@ export XAUTHORITY=/home/steam/.Xauthority
 VNC_PORT=${VNC_PORT:-5900}
 SUNSHINE_PORT=${SUNSHINE_PORT:-7000}
 
+echo "Starting with VNC_PORT=${VNC_PORT} and SUNSHINE_PORT=${SUNSHINE_PORT}"
+
 # Clean up any existing processes and sockets
 sudo pkill -9 -u steam Xvfb sunshine steam x11vnc pulseaudio dbus-daemon || true
 sudo rm -f /tmp/.X0-lock /tmp/.X11-unix/X0 /home/steam/.Xauthority
@@ -71,6 +73,7 @@ openbox --config-file /home/steam/.config/openbox/autostart &
 sleep 2
 
 # Start VNC server with dynamic port
+echo "Starting VNC server on port ${VNC_PORT}"
 x11vnc -display :0 -nopw -forever -shared -repeat -noxdamage -noxfixes -noxrecord -listen 0.0.0.0 -rfbport ${VNC_PORT} -ncache 10 -ncache_cr -scale 1920x1080 &
 sleep 2
 
@@ -81,38 +84,18 @@ sleep 5
 # Create dynamic Sunshine configuration
 mkdir -p /home/steam/.config/sunshine
 cat > /home/steam/.config/sunshine/sunshine.conf << EOF
-# Sunshine Configuration
-
-# Network settings
 port = ${SUNSHINE_PORT}
-
-# Display settings
 fps = 60
 adapter_name = NVIDIA
 output_name = Virtual Display
-
-# Audio settings
 audio_sink = default
-
-# Encoder settings
 encoder = nvenc,vaapi,software
 hevc_mode = 0
-
-# Input settings
 gamepad = x360
-
-# Application settings
-apps = [
-  {
-    name = "Steam"
-    cmd = "steam -bigpicture"
-    detached = ["steam"]
-    image-path = "/home/steam/.local/share/icons/steam.png"
-  }
-]
 EOF
 
 # Start Sunshine with dynamic configuration
+echo "Starting Sunshine on port ${SUNSHINE_PORT}"
 export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 sunshine /home/steam/.config/sunshine/sunshine.conf &
 
