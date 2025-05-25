@@ -162,21 +162,11 @@ RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula sele
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Steam direkt installieren (einfacher Ansatz)
+# Steam direkt installieren (einfacher Ansatz) - moved after user creation
 RUN echo "Installing Steam directly..." && \
     # Steam über multiverse Repository installieren
     apt-get update && \
     apt-get install -y steam-installer && \
-    # Steam-Verzeichnisse vorbereiten
-    mkdir -p /home/user/.steam && \
-    mkdir -p /home/user/.local/share/Steam && \
-    mkdir -p /home/user/.config/steam && \
-    # Steam-Berechtigungen setzen
-    chown -R user:user /home/user/.steam /home/user/.local/share/Steam /home/user/.config && \
-    # Steam-Konfiguration für Container-Optimierung
-    echo 'export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam' >> /home/user/.bashrc && \
-    echo 'export STEAM_RUNTIME=1' >> /home/user/.bashrc && \
-    echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /home/user/.bashrc && \
     # Verifizieren dass Steam installiert ist
     which steam && \
     echo "Steam installation completed successfully"
@@ -247,6 +237,17 @@ RUN useradd -m -s /bin/bash -u 1000 user && \
 # VNC-Verzeichnis vorbereiten
 RUN mkdir -p /home/user/.vnc && \
     chown -R user:user /home/user
+
+# Steam-Verzeichnisse vorbereiten (nach Benutzer-Erstellung)
+RUN mkdir -p /home/user/.steam && \
+    mkdir -p /home/user/.local/share/Steam && \
+    mkdir -p /home/user/.config/steam && \
+    # Steam-Berechtigungen setzen
+    chown -R user:user /home/user/.steam /home/user/.local/share/Steam /home/user/.config/steam && \
+    # Steam-Konfiguration für Container-Optimierung
+    echo 'export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam' >> /home/user/.bashrc && \
+    echo 'export STEAM_RUNTIME=1' >> /home/user/.bashrc && \
+    echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /home/user/.bashrc
 
 # Desktop-Konfiguration für XFCE4
 RUN mkdir -p /home/user/.config/xfce4/xfconf/xfce-perchannel-xml && \
