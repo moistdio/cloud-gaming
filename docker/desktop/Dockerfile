@@ -161,9 +161,14 @@ RUN apt-get update && apt-get install -y \
     vulkan-validationlayers \
     libvulkan1 \
     mesa-vulkan-drivers \
-    nvidia-vulkan-icd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# NVIDIA Vulkan ICD separat konfigurieren (falls NVIDIA Treiber installiert)
+RUN mkdir -p /usr/share/vulkan/icd.d && \
+    if [ -f /usr/lib/x86_64-linux-gnu/libGL.so.1 ]; then \
+        echo '{"file_format_version": "1.0.0", "ICD": {"library_path": "libGLX_nvidia.so.0", "api_version": "1.3.0"}}' > /usr/share/vulkan/icd.d/nvidia_icd.json || true; \
+    fi
 
 # noVNC von GitHub installieren (neueste Version)
 RUN cd /opt && \
