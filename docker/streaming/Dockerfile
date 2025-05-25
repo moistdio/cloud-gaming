@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     sudo \
     xvfb \
     x11vnc \
+    x11-utils \
     fluxbox \
     pulseaudio \
     alsa-utils \

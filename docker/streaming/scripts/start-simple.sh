@@ -20,16 +20,16 @@ fluxbox &
 echo "Starting PulseAudio..."
 pulseaudio --start --log-target=syslog
 
-# Start VNC server (for debugging)
+# Start VNC server (accessible from outside)
 echo "Starting VNC server..."
-x11vnc -display :0 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever &
+x11vnc -display :0 -nopw -listen 0.0.0.0 -xkb -ncache 10 -ncache_cr -forever &
 
 # Simple HTTP server for health checks
 echo "Starting simple HTTP server..."
 python3 -m http.server 47989 &
 
 echo "Streaming service is running (simplified mode)"
-echo "VNC available on port 5900"
+echo "VNC available on port 5900 (accessible externally)"
 echo "HTTP server on port 47989"
 
 # Keep container running
