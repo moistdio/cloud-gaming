@@ -1,6 +1,26 @@
 Write-Host "🚀 Cloud Gaming System Setup" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 
+# Prüfen ob Node.js installiert ist
+Write-Host "Prüfe Node.js..." -ForegroundColor Yellow
+try {
+    $nodeVersion = node --version
+    Write-Host "✅ Node.js gefunden: $nodeVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Node.js nicht gefunden" -ForegroundColor Red
+    Write-Host "Bitte installiere Node.js: https://nodejs.org/" -ForegroundColor Yellow
+    exit 1
+}
+
+# Prüfen ob npm verfügbar ist
+try {
+    $npmVersion = npm --version
+    Write-Host "✅ npm gefunden: $npmVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ npm nicht gefunden" -ForegroundColor Red
+    exit 1
+}
+
 # Prüfen ob Docker läuft
 Write-Host "Prüfe Docker..." -ForegroundColor Yellow
 try {
@@ -26,6 +46,10 @@ if (-not (Test-Path "backend/package-lock.json")) {
     Write-Host "Erstelle Backend package-lock.json..." -ForegroundColor Yellow
     Set-Location backend
     npm install --package-lock-only
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ Fehler beim Erstellen der Backend package-lock.json" -ForegroundColor Red
+        exit 1
+    }
     Set-Location ..
     Write-Host "✅ Backend package-lock.json erstellt" -ForegroundColor Green
 }
@@ -35,6 +59,10 @@ if (-not (Test-Path "frontend/package-lock.json")) {
     Write-Host "Erstelle Frontend package-lock.json..." -ForegroundColor Yellow
     Set-Location frontend
     npm install --package-lock-only
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ Fehler beim Erstellen der Frontend package-lock.json" -ForegroundColor Red
+        exit 1
+    }
     Set-Location ..
     Write-Host "✅ Frontend package-lock.json erstellt" -ForegroundColor Green
 }

@@ -11,6 +11,26 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
+# Prüfen ob Node.js installiert ist
+echo -e "${YELLOW}Prüfe Node.js...${NC}"
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node --version)
+    echo -e "${GREEN}✅ Node.js gefunden: $NODE_VERSION${NC}"
+else
+    echo -e "${RED}❌ Node.js nicht installiert${NC}"
+    echo -e "${YELLOW}Bitte installiere Node.js: https://nodejs.org/${NC}"
+    exit 1
+fi
+
+# Prüfen ob npm verfügbar ist
+if command -v npm &> /dev/null; then
+    NPM_VERSION=$(npm --version)
+    echo -e "${GREEN}✅ npm gefunden: $NPM_VERSION${NC}"
+else
+    echo -e "${RED}❌ npm nicht gefunden${NC}"
+    exit 1
+fi
+
 # Prüfen ob Docker läuft
 echo -e "${YELLOW}Prüfe Docker...${NC}"
 if command -v docker &> /dev/null; then
@@ -44,6 +64,10 @@ if [ ! -f "backend/package-lock.json" ]; then
     echo -e "${YELLOW}Erstelle Backend package-lock.json...${NC}"
     cd backend
     npm install --package-lock-only
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Fehler beim Erstellen der Backend package-lock.json${NC}"
+        exit 1
+    fi
     cd ..
     echo -e "${GREEN}✅ Backend package-lock.json erstellt${NC}"
 fi
@@ -53,6 +77,10 @@ if [ ! -f "frontend/package-lock.json" ]; then
     echo -e "${YELLOW}Erstelle Frontend package-lock.json...${NC}"
     cd frontend
     npm install --package-lock-only
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Fehler beim Erstellen der Frontend package-lock.json${NC}"
+        exit 1
+    fi
     cd ..
     echo -e "${GREEN}✅ Frontend package-lock.json erstellt${NC}"
 fi
