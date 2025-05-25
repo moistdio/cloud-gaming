@@ -376,6 +376,15 @@ router.post('/create', async (req, res) => {
         // Privileged Mode für GPU-Zugriff
         Privileged: false, // Sicherheit: nur spezifische Capabilities
         CapAdd: ['SYS_ADMIN'], // Für GPU-Management
+        // Security Options für Steam und User Namespaces
+        SecurityOpt: [
+          'seccomp=unconfined',
+          'apparmor=unconfined'
+        ],
+        // Sysctls für User Namespaces
+        Sysctls: {
+          'kernel.unprivileged_userns_clone': '1'
+        },
         // Shared Memory für GPU-Anwendungen
         ShmSize: 2 * 1024 * 1024 * 1024 // 2GB Shared Memory
       },
