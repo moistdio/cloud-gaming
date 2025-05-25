@@ -54,9 +54,5 @@
     "ts-jest": "^29.1.1",
     "supertest": "^6.3.3",
     "@types/supertest": "^2.0.16"
-  },
-  "peerDependencies": {
-    "@cloudstream/types": "workspace:*",
-    "@cloudstream/database": "workspace:*"
   }
 } 

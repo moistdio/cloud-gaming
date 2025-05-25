@@ -6,13 +6,13 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/types/package.json ./packages/types/
 COPY packages/database/package.json ./packages/database/
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --production
 
 # Rebuild the source code only when needed
 FROM base AS builder
