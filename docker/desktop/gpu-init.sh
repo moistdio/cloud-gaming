@@ -338,6 +338,12 @@ EOF
             # Update LD cache
             ldconfig
             
+            # Force NVIDIA GLX by setting environment variables
+            echo "# Force NVIDIA GLX" >> /etc/environment
+            echo "__GLX_VENDOR_LIBRARY_NAME=nvidia" >> /etc/environment
+            echo "LIBGL_ALWAYS_INDIRECT=0" >> /etc/environment
+            echo "LIBGL_ALWAYS_SOFTWARE=0" >> /etc/environment
+            
             log_success "NVIDIA GLVND configuration created"
         else
             log_warning "NVIDIA GLX libraries not found, checking alternatives..."
@@ -391,7 +397,8 @@ EOF
         # Vulkan ICD für NVIDIA konfigurieren
         log_info "Configuring NVIDIA Vulkan ICD..."
         mkdir -p /usr/share/vulkan/icd.d
-        mkdir -p /etc/vulkan/icd.d
+        # Try to create /etc/vulkan/icd.d, but don't fail if read-only
+        mkdir -p /etc/vulkan/icd.d 2>/dev/null || log_warning "/etc/vulkan/icd.d is read-only, using /usr/share/vulkan/icd.d only"
         
         # Suche nach verfügbaren NVIDIA Vulkan-Bibliotheken
         NVIDIA_VULKAN_PATHS=(
@@ -435,8 +442,9 @@ EOF
             if [ "$NVIDIA_ICD_JSON" != "/usr/share/vulkan/icd.d/nvidia_icd.json" ]; then
                 cp "$NVIDIA_ICD_JSON" /usr/share/vulkan/icd.d/nvidia_icd.json
             fi
-            if [ "$NVIDIA_ICD_JSON" != "/etc/vulkan/icd.d/nvidia_icd.json" ]; then
-                cp "$NVIDIA_ICD_JSON" /etc/vulkan/icd.d/nvidia_icd.json
+            # Try to copy to /etc/vulkan/icd.d if writable
+            if [ "$NVIDIA_ICD_JSON" != "/etc/vulkan/icd.d/nvidia_icd.json" ] && [ -w "/etc/vulkan/icd.d" ]; then
+                cp "$NVIDIA_ICD_JSON" /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
             fi
             log_success "NVIDIA Vulkan ICD configured from existing file: $NVIDIA_ICD_JSON"
         elif [ ! -z "$NVIDIA_VULKAN_LIB" ]; then
@@ -451,7 +459,10 @@ EOF
     }
 }
 EOF
-            cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json
+            # Try to copy to /etc/vulkan/icd.d if writable
+            if [ -w "/etc/vulkan/icd.d" ]; then
+                cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+            fi
             log_success "NVIDIA Vulkan ICD configured with library: $LIB_NAME"
         else
             # Fallback-Konfiguration mit verschiedenen möglichen Bibliotheksnamen
@@ -465,7 +476,10 @@ EOF
     }
 }
 EOF
-                cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json
+                # Try to copy to /etc/vulkan/icd.d if writable
+                if [ -w "/etc/vulkan/icd.d" ]; then
+                    cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+                fi
                 log_warning "NVIDIA Vulkan ICD configured with fallback: $lib_name"
                 break
             done
@@ -473,7 +487,11 @@ EOF
         
         # Setze Vulkan-Umgebungsvariablen für bessere Kompatibilität
         echo "# NVIDIA Vulkan Environment Variables" >> /etc/environment
-        echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
+        if [ -w "/etc/vulkan/icd.d" ]; then
+            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
+        else
+            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
+        fi
         echo "VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d" >> /etc/environment
         echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         

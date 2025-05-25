@@ -18,32 +18,27 @@ else
     echo "✅ Steam will run with sandbox disabled"
 fi
 
-# Start D-Bus for system services
-echo "🔧 Starting D-Bus system service..."
-mkdir -p /run/dbus
-dbus-daemon --system --fork --print-pid --print-address 2>/dev/null || echo "D-Bus may already be running"
-
-# Setup PulseAudio for Steam audio
+# Setup PulseAudio for Steam audio (simplified, no D-Bus required)
 echo "🔊 Setting up PulseAudio for Steam..."
 
-# Create system-wide PulseAudio configuration
+# Create simple PulseAudio configuration without D-Bus dependencies
 cat > /etc/pulse/system.pa << 'EOF'
 #!/usr/bin/pulseaudio -nF
-# System-wide PulseAudio configuration
+# Simplified system-wide PulseAudio configuration
 
 # Load null sink for dummy audio
 load-module module-null-sink sink_name=dummy sink_properties=device.description="Dummy_Output"
 
-# Load native protocol with no authentication
+# Load native protocol with no authentication and no D-Bus
 load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-native
 
 # Set default sink
 set-default-sink dummy
 EOF
 
-# Create client configuration to disable authentication
+# Create client configuration
 cat > /etc/pulse/client.conf << 'EOF'
-# System-wide client configuration
+# Client configuration
 default-server = unix:/tmp/pulse-native
 autospawn = no
 EOF
@@ -60,9 +55,9 @@ chown -R user:user /home/user/.config/pulse
 # Set PulseAudio environment variables
 export PULSE_SERVER="unix:/tmp/pulse-native"
 
-# Start PulseAudio in system mode with no authentication
+# Start PulseAudio in system mode without D-Bus
 echo "🎵 Starting PulseAudio in system mode..."
-pulseaudio --system --disallow-exit --disallow-module-loading=false --disable-shm --log-target=stderr &
+pulseaudio --system --disallow-exit --disallow-module-loading=false --disable-shm --log-target=stderr --exit-idle-time=-1 &
 
 # Wait for PulseAudio to start
 sleep 3
@@ -196,7 +191,7 @@ if [ ! -z "$STEAM_EXTRA_FLAGS" ]; then
 fi
 
 # Vulkan-Support (enhanced for better compatibility)
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/intel_icd.x86_64.json
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/intel_icd.x86_64.json
 export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 
