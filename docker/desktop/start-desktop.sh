@@ -66,8 +66,8 @@ echo "🚀 Starting VNC Server on port $VNC_PORT..."
 # Zuerst alle bestehenden VNC-Server stoppen
 vncserver -kill $DISPLAY 2>/dev/null || true
 
-# VNC-Server als user starten mit sudo
-sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -localhost no
+# VNC-Server als user starten mit sudo (korrigierte Syntax)
+sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
 
 # noVNC Web-Interface starten
 echo "🌐 Starting noVNC Web Interface on port $WEB_VNC_PORT..."
@@ -157,7 +157,7 @@ while true; do
         # VNC-Server neu starten falls nötig
         if ! netstat -ln | grep -q ":$VNC_PORT "; then
             echo "🔄 Restarting VNC Server..."
-            sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT -localhost no
+            sudo -u user HOME=/home/user vncserver $DISPLAY -geometry 1920x1080 -depth 24 -rfbport $VNC_PORT
         fi
         
         # noVNC neu starten falls nötig

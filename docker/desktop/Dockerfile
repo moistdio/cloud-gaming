@@ -15,6 +15,12 @@ RUN apt-get update && apt-get install -y \
     xfce4-terminal \
     # VNC-Server
     tightvncserver \
+    # X11 und Fonts
+    xfonts-base \
+    xfonts-75dpi \
+    xfonts-100dpi \
+    xfonts-scalable \
+    xserver-xorg-core \
     # System-Tools
     sudo \
     # Netzwerk-Tools
