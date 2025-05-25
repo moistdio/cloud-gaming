@@ -30,6 +30,12 @@ interface StreamingRequest {
   fps: number;
 }
 
+interface JWTUser {
+  id: string;
+  email: string;
+  username: string;
+}
+
 // Setup
 const app = express();
 const server = createServer(app);
@@ -86,7 +92,7 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
   jwt.verify(token, process.env.JWT_SECRET || 'secret', (err: any, user: any) => {
     if (err) return res.sendStatus(403);
-    req.user = user;
+    req.user = user as JWTUser;
     next();
   });
 };
