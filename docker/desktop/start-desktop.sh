@@ -19,6 +19,7 @@ echo "  VNC Port: $VNC_PORT"
 echo "  Web VNC Port: $WEB_VNC_PORT"
 echo "  Display: $DISPLAY"
 echo "  User ID: $USER_ID"
+echo "  Port Range: VNC 11000-11430, Web 12000-12430"
 
 # Benutzer erstellen falls nicht vorhanden
 if ! id -u user >/dev/null 2>&1; then

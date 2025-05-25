@@ -6,10 +6,11 @@ Ein vollständiges Cloud-Gaming und Remote-Desktop-System, das es Benutzern erm�
 
 ### 🖥️ Container-Management
 - **Ein Container pro Benutzer**: Jeder Benutzer kann einen persönlichen Desktop-Container erstellen
-- **VNC-Zugriff**: Port-Bereich 11000+ für VNC-Server
-- **Web-VNC**: Browser-basierter Zugriff über noVNC (Port-Bereich 12000+)
+- **VNC-Zugriff**: Port-Bereich 11000-11430 für VNC-Server
+- **Web-VNC**: Browser-basierter Zugriff über noVNC (Port-Bereich 12000-12430)
 - **Ubuntu 22.04 + XFCE4**: Vollständige Desktop-Umgebung
 - **Automatische Port-Zuweisung**: Keine Konflikte zwischen Containern
+- **Skalierbarkeit**: Unterstützt bis zu 430 gleichzeitige Container
 
 ### 👥 Benutzerverwaltung
 - **Admin-System**: Erster Benutzer wird automatisch Administrator
@@ -28,9 +29,9 @@ Ein vollständiges Cloud-Gaming und Remote-Desktop-System, das es Benutzern erm�
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │    Backend      │    │  Desktop        │
 │   (React)       │◄──►│   (Node.js)     │◄──►│  Containers     │
-│   Port: 3003    │    │   Port: 3002    │    │  Ports: 11000+  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
+│   Port: 3003    │    │   Port: 3002    │    │ Ports: 11000-   │
+└─────────────────┘    └─────────────────┘    │      11430      │
+                              │               └─────────────────┘
                               ▼
                        ┌─────────────────┐
                        │   SQLite DB     │
@@ -109,8 +110,8 @@ Jeder Container enthält:
 ### Port-Bereiche
 - **Frontend**: 3003
 - **Backend**: 3002
-- **VNC-Server**: 11000-11999
-- **Web-VNC**: 12000-12999
+- **VNC-Server**: 11000-11430
+- **Web-VNC**: 12000-12430
 
 ### Umgebungsvariablen
 ```bash

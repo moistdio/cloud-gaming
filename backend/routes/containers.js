@@ -9,29 +9,42 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
 // Port-Konfiguration
 const VNC_PORT_START = 11000;
+const VNC_PORT_END = 11430;
 const WEB_VNC_PORT_START = 12000;
+const WEB_VNC_PORT_END = 12430;
 
 // Alle Middleware-Funktionen benötigen Authentifizierung
 router.use(authMiddleware);
 
 // Hilfsfunktion: Nächsten verfügbaren Port finden
-async function findAvailablePort(startPort, type = 'vnc') {
+async function findAvailablePort(startPort, endPort, type = 'vnc') {
   const db = getDatabase();
   
   return new Promise((resolve, reject) => {
     const column = type === 'vnc' ? 'vnc_port' : 'web_port';
     
-    db.get(
-      `SELECT MAX(${column}) as maxPort FROM containers WHERE ${column} >= ?`,
-      [startPort],
-      (err, row) => {
+    // Alle verwendeten Ports in dem Bereich abrufen
+    db.all(
+      `SELECT ${column} FROM containers WHERE ${column} >= ? AND ${column} <= ? ORDER BY ${column}`,
+      [startPort, endPort],
+      (err, rows) => {
         if (err) {
           reject(err);
           return;
         }
         
-        const nextPort = row.maxPort ? row.maxPort + 1 : startPort;
-        resolve(nextPort);
+        const usedPorts = rows.map(row => row[column]);
+        
+        // Ersten freien Port finden
+        for (let port = startPort; port <= endPort; port++) {
+          if (!usedPorts.includes(port)) {
+            resolve(port);
+            return;
+          }
+        }
+        
+        // Kein freier Port verfügbar
+        reject(new Error(`Keine freien Ports im Bereich ${startPort}-${endPort} verfügbar`));
       }
     );
   });
@@ -144,8 +157,8 @@ router.post('/create', async (req, res) => {
     }
 
     // Verfügbare Ports finden
-    const vncPort = await findAvailablePort(VNC_PORT_START, 'vnc');
-    const webVncPort = await findAvailablePort(WEB_VNC_PORT_START, 'web');
+    const vncPort = await findAvailablePort(VNC_PORT_START, VNC_PORT_END, 'vnc');
+    const webVncPort = await findAvailablePort(WEB_VNC_PORT_START, WEB_VNC_PORT_END, 'web');
 
     logger.info(`Erstelle Container für Benutzer ${req.user.username}: VNC=${vncPort}, Web=${webVncPort}`);
 

@@ -339,9 +339,11 @@ const ContainersPage = () => {
                 <br />
                 • VNC-Client (TightVNC, RealVNC)
                 <br />
-                • Port-Bereich: 11000-12999
+                • Port-Bereich: VNC 11000-11430, Web 12000-12430
                 <br />
                 • Automatische Port-Zuweisung
+                <br />
+                • Maximal 430 gleichzeitige Container
               </Typography>
             </Grid>
           </Grid>

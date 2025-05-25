@@ -115,8 +115,8 @@ RUN chown -R user:user /home/user/.config
 COPY start-desktop.sh /usr/local/bin/start-desktop.sh
 RUN chmod +x /usr/local/bin/start-desktop.sh
 
-# Dynamische Ports freigeben (werden zur Laufzeit gesetzt)
-EXPOSE 11000-12999
+# Port-Bereiche freigeben (VNC: 11000-11430, Web: 12000-12430)
+EXPOSE 11000-11430 12000-12430
 
 # Arbeitsverzeichnis setzen
 WORKDIR /home/user

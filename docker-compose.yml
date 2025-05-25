@@ -7,8 +7,9 @@ services:
     container_name: cloud-gaming-backend
     ports:
       - "3002:3001"
-      # Port-Bereich für VNC und Web-VNC Container
-      - "11000-12999:11000-12999"
+      # Port-Bereiche für VNC und Web-VNC Container (begrenzt auf 430 Container)
+      - "11000-11430:11000-11430"
+      - "12000-12430:12000-12430"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
