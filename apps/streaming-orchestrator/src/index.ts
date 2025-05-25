@@ -45,6 +45,21 @@ interface JWTUser {
   username: string;
 }
 
+// Docker container creation options type
+interface ContainerCreateOptions {
+  Image: string;
+  name: string;
+  Env: string[];
+  ExposedPorts: Record<string, {}>;
+  HostConfig: {
+    PortBindings: Record<string, Array<{ HostPort: string }>>;
+    Memory: number;
+    CpuShares: number;
+    AutoRemove: boolean;
+    NetworkMode: string;
+  };
+}
+
 // Setup
 const app = express();
 const server = createServer(app);
@@ -132,7 +147,7 @@ async function createUserContainer(userId: string, sessionId: string, options: S
   try {
     logger.info(`Creating container for user ${userId}, session ${sessionId}`);
     
-    const container = await docker.createContainer({
+    const containerOptions: ContainerCreateOptions = {
       Image: 'cloudstream-streaming:latest',
       name: containerName,
       Env: [
@@ -156,17 +171,18 @@ async function createUserContainer(userId: string, sessionId: string, options: S
         },
         Memory: 4 * 1024 * 1024 * 1024, // 4GB
         CpuShares: 1024,
-        AutoRemove: true
-      },
-      NetworkMode: 'cloudstream-network'
-    });
+        AutoRemove: true,
+        NetworkMode: 'cloudstream-network'
+      }
+    };
 
+    const container = await docker.createContainer(containerOptions as any);
     await container.start();
     
     const session: UserSession = {
       userId,
       sessionId,
-      containerId: container.id,
+      containerId: (container as any).id || '',
       containerName,
       vncPort,
       sunshinePort,
