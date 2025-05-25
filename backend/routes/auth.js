@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const { getDatabase } = require('../database/init');
+const { getDatabase, checkFirstUserAdmin } = require('../database/init');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
@@ -81,13 +81,16 @@ router.post('/register', validateRegistration, async (req, res) => {
       );
     });
 
-    logger.info(`Neuer Benutzer registriert: ${username} (ID: ${userId})`);
+    // Prüfen ob dies der erste Benutzer ist und ihn zum Admin machen
+    const isFirstUser = await checkFirstUserAdmin(userId);
+
+    logger.info(`Neuer Benutzer registriert: ${username} (ID: ${userId})${isFirstUser ? ' - ADMINISTRATOR' : ''}`);
 
     // Log erstellen
     await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
-        [userId, 'USER_REGISTERED', `Benutzer ${username} registriert`, req.ip],
+        [userId, 'USER_REGISTERED', `Benutzer ${username} registriert${isFirstUser ? ' (Administrator)' : ''}`, req.ip],
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -100,7 +103,8 @@ router.post('/register', validateRegistration, async (req, res) => {
       user: {
         id: userId,
         username,
-        email
+        email,
+        isAdmin: isFirstUser
       }
     });
 
@@ -130,7 +134,7 @@ router.post('/login', validateLogin, async (req, res) => {
     // Benutzer finden
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, email, password_hash, is_active FROM users WHERE username = ? OR email = ?',
+        'SELECT id, username, email, password_hash, is_active, is_admin FROM users WHERE username = ? OR email = ?',
         [username, username],
         (err, row) => {
           if (err) reject(err);
@@ -166,7 +170,8 @@ router.post('/login', validateLogin, async (req, res) => {
     const token = jwt.sign(
       { 
         userId: user.id, 
-        username: user.username 
+        username: user.username,
+        isAdmin: user.is_admin
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -199,7 +204,7 @@ router.post('/login', validateLogin, async (req, res) => {
       );
     });
 
-    logger.info(`Benutzer angemeldet: ${user.username} (ID: ${user.id})`);
+    logger.info(`Benutzer angemeldet: ${user.username} (ID: ${user.id})${user.is_admin ? ' - ADMIN' : ''}`);
 
     // Log erstellen
     await new Promise((resolve, reject) => {
@@ -220,7 +225,8 @@ router.post('/login', validateLogin, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        isAdmin: user.is_admin
       }
     });
 
@@ -282,7 +288,7 @@ router.get('/validate', async (req, res) => {
     // Benutzer prüfen
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, email, is_active FROM users WHERE id = ?',
+        'SELECT id, username, email, is_active, is_admin FROM users WHERE id = ?',
         [decoded.userId],
         (err, row) => {
           if (err) reject(err);
@@ -302,7 +308,8 @@ router.get('/validate', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        isAdmin: user.is_admin
       }
     });
 

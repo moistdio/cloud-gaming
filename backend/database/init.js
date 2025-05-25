@@ -45,12 +45,13 @@ async function initDatabase() {
 async function createTables() {
   return new Promise((resolve, reject) => {
     const queries = [
-      // Benutzer-Tabelle
+      // Benutzer-Tabelle mit Admin-Rolle
       `CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
+        is_admin BOOLEAN DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_active BOOLEAN DEFAULT 1,
@@ -124,6 +125,7 @@ async function createIndexes() {
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
       'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+      'CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin)',
       'CREATE INDEX IF NOT EXISTS idx_containers_user_id ON containers(user_id)',
       'CREATE INDEX IF NOT EXISTS idx_containers_status ON containers(status)',
       'CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(session_token)',
@@ -152,6 +154,40 @@ async function createIndexes() {
   });
 }
 
+// Prüfen ob der erste Benutzer Admin werden soll
+async function checkFirstUserAdmin(userId) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      'SELECT COUNT(*) as count FROM users WHERE id < ?',
+      [userId],
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        // Wenn dies der erste Benutzer ist, mache ihn zum Admin
+        if (row.count === 0) {
+          db.run(
+            'UPDATE users SET is_admin = 1 WHERE id = ?',
+            [userId],
+            (updateErr) => {
+              if (updateErr) {
+                reject(updateErr);
+                return;
+              }
+              logger.info(`Erster Benutzer (ID: ${userId}) wurde zum Administrator ernannt`);
+              resolve(true);
+            }
+          );
+        } else {
+          resolve(false);
+        }
+      }
+    );
+  });
+}
+
 function closeDatabase() {
   if (db) {
     db.close((err) => {
@@ -167,5 +203,6 @@ function closeDatabase() {
 module.exports = {
   initDatabase,
   getDatabase,
-  closeDatabase
+  closeDatabase,
+  checkFirstUserAdmin
 }; 

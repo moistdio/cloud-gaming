@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import Cookies from 'js-cookie'
-import { authAPI } from '../services/api'
+import { api } from '../services/api'
 
 const AuthContext = createContext()
 
@@ -15,98 +14,195 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  // Token aus Cookies laden
-  const getToken = () => Cookies.get('auth_token')
-  const getSessionToken = () => Cookies.get('session_token')
-
-  // Token in Cookies speichern
-  const setTokens = (token, sessionToken) => {
-    Cookies.set('auth_token', token, { expires: 1, secure: true, sameSite: 'strict' })
-    Cookies.set('session_token', sessionToken, { expires: 1, secure: true, sameSite: 'strict' })
-  }
-
-  // Token aus Cookies entfernen
-  const removeTokens = () => {
-    Cookies.remove('auth_token')
-    Cookies.remove('session_token')
-  }
-
-  // Benutzer validieren
-  const validateUser = async () => {
-    const token = getToken()
-    if (!token) {
+  // Token aus localStorage laden
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      validateToken(token)
+    } else {
       setLoading(false)
-      return
     }
+  }, [])
 
+  // Token validieren
+  const validateToken = async (token) => {
     try {
-      const response = await authAPI.validate()
-      setUser(response.data.user)
+      const response = await api.get('/auth/validate', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (response.data.valid) {
+        setUser(response.data.user)
+        setIsAuthenticated(true)
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      } else {
+        localStorage.removeItem('token')
+        localStorage.removeItem('sessionToken')
+      }
     } catch (error) {
       console.error('Token-Validierung fehlgeschlagen:', error)
-      removeTokens()
-      setUser(null)
+      localStorage.removeItem('token')
+      localStorage.removeItem('sessionToken')
     } finally {
       setLoading(false)
-    }
-  }
-
-  // Login
-  const login = async (username, password) => {
-    try {
-      const response = await authAPI.login(username, password)
-      const { token, sessionToken, user: userData } = response.data
-      
-      setTokens(token, sessionToken)
-      setUser(userData)
-      
-      return { success: true, user: userData }
-    } catch (error) {
-      const message = error.response?.data?.message || 'Anmeldung fehlgeschlagen'
-      return { success: false, error: message }
     }
   }
 
   // Registrierung
   const register = async (username, email, password) => {
     try {
-      const response = await authAPI.register(username, email, password)
-      return { success: true, user: response.data.user }
+      const response = await api.post('/auth/register', {
+        username,
+        email,
+        password
+      })
+
+      return {
+        success: true,
+        user: response.data.user,
+        message: response.data.message
+      }
     } catch (error) {
-      const message = error.response?.data?.message || 'Registrierung fehlgeschlagen'
-      return { success: false, error: message }
+      console.error('Registrierung fehlgeschlagen:', error)
+      
+      let errorMessage = 'Registrierung fehlgeschlagen'
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error
+        
+        // Detaillierte Validierungsfehler
+        if (error.response.data.details) {
+          const details = error.response.data.details
+          if (Array.isArray(details) && details.length > 0) {
+            errorMessage = details[0].msg || errorMessage
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  }
+
+  // Login
+  const login = async (username, password) => {
+    try {
+      const response = await api.post('/auth/login', {
+        username,
+        password
+      })
+
+      const { token, sessionToken, user: userData } = response.data
+
+      // Token speichern
+      localStorage.setItem('token', token)
+      localStorage.setItem('sessionToken', sessionToken)
+      
+      // API-Header setzen
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      api.defaults.headers.common['X-Session-Token'] = sessionToken
+
+      // User-State aktualisieren
+      setUser(userData)
+      setIsAuthenticated(true)
+
+      return {
+        success: true,
+        user: userData,
+        message: response.data.message
+      }
+    } catch (error) {
+      console.error('Login fehlgeschlagen:', error)
+      
+      let errorMessage = 'Anmeldung fehlgeschlagen'
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error
+      }
+
+      return {
+        success: false,
+        error: errorMessage
+      }
     }
   }
 
   // Logout
   const logout = async () => {
     try {
-      const sessionToken = getSessionToken()
+      const sessionToken = localStorage.getItem('sessionToken')
+      
       if (sessionToken) {
-        await authAPI.logout(sessionToken)
+        await api.post('/auth/logout', {}, {
+          headers: { 'X-Session-Token': sessionToken }
+        })
       }
     } catch (error) {
       console.error('Logout-Fehler:', error)
     } finally {
-      removeTokens()
+      // Lokale Daten löschen
+      localStorage.removeItem('token')
+      localStorage.removeItem('sessionToken')
+      
+      // API-Header entfernen
+      delete api.defaults.headers.common['Authorization']
+      delete api.defaults.headers.common['X-Session-Token']
+      
+      // State zurücksetzen
       setUser(null)
+      setIsAuthenticated(false)
     }
   }
 
-  // Bei App-Start Benutzer validieren
-  useEffect(() => {
-    validateUser()
-  }, [])
+  // Admin-Prüfung
+  const isAdmin = () => {
+    return user?.isAdmin === true
+  }
+
+  // Benutzer-Rolle abrufen
+  const getUserRole = () => {
+    if (!user) return 'guest'
+    return user.isAdmin ? 'admin' : 'user'
+  }
+
+  // Berechtigung prüfen
+  const hasPermission = (permission) => {
+    if (!user) return false
+    
+    switch (permission) {
+      case 'admin':
+        return user.isAdmin
+      case 'user':
+        return true
+      case 'container.create':
+        return true
+      case 'container.manage':
+        return true
+      case 'admin.users':
+        return user.isAdmin
+      case 'admin.system':
+        return user.isAdmin
+      default:
+        return false
+    }
+  }
 
   const value = {
     user,
     loading,
-    login,
+    isAuthenticated,
     register,
+    login,
     logout,
-    getToken,
-    getSessionToken
+    isAdmin,
+    getUserRole,
+    hasPermission
   }
 
   return (
