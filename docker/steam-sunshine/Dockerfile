@@ -90,7 +90,7 @@ WORKDIR /home/steam
 USER steam
 
 # Start script
-COPY start.sh /home/steam/start.sh
+COPY start-new.sh /home/steam/start.sh
 RUN sudo chmod +x /home/steam/start.sh
 
 ENTRYPOINT ["/home/steam/start.sh"] 
