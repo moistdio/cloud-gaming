@@ -120,8 +120,14 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export PATH=/usr/local/cuda/bin:\$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
 
-# Start XFCE4 Desktop with GPU acceleration via VirtualGL
-vglrun startxfce4 &
+# Start XFCE4 Desktop with GPU acceleration via VirtualGL (if available)
+if command -v vglrun >/dev/null 2>&1; then
+    echo "Starting XFCE4 with VirtualGL acceleration..."
+    vglrun startxfce4 &
+else
+    echo "VirtualGL not available, starting XFCE4 normally..."
+    startxfce4 &
+fi
 EOF
 
 chmod +x /home/user/.vnc/xstartup
