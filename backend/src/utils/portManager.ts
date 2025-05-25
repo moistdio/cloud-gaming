@@ -85,9 +85,6 @@ async function getAllocatedPorts(): Promise<{
   moonlightPortRanges: Array<{ start: number; end: number }>;
 }> {
   try {
-    // First clean up any invalid allocations
-    await cleanupInvalidPortAllocations();
-
     const instances = await prisma.instance.findMany({
       where: {
         status: { in: ['starting', 'running'] },

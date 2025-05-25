@@ -71,6 +71,9 @@ router.post('/start', authenticateToken, asyncHandler(async (req: Request, res: 
       console.log('No existing container to clean up, continuing...');
     }
 
+    // Clean up any invalid port allocations before allocating new ports
+    await cleanupInvalidPortAllocations();
+
     // Allocate ports for this instance
     const ports = await allocatePorts();
     if (!ports) {
