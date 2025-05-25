@@ -33,7 +33,7 @@ model User {
   analytics        UserAnalytics?
   inviteCodes      InviteCode[]
   usedInviteCode   InviteCode? @relation("UsedInviteCode", fields: [usedInviteCodeId], references: [id])
-  usedInviteCodeId String?
+  usedInviteCodeId String?     @unique
 
   @@map("users")
 }
