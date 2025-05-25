@@ -15,13 +15,18 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: [
+  origin: process.env.CORS_ORIGIN === '*' ? true : [
     'http://localhost:3000',
+    'http://localhost:7000',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:7000',
     'http://148.251.51.138:7000',
     'http://148.251.51.138:7080',
     process.env.CORS_ORIGIN
   ].filter((origin): origin is string => Boolean(origin)),
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(compression());
 app.use(morgan('combined'));
@@ -86,7 +91,7 @@ app.listen(PORT, () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
   console.log(`📈 Metrics: http://localhost:${PORT}/metrics`);
-  console.log(`🌐 CORS enabled for: localhost:3000, 148.251.51.138:7000, 148.251.51.138:7080`);
+  console.log(`🌐 CORS enabled for: localhost:3000, localhost:7000, 127.0.0.1:3000, 127.0.0.1:7000, 148.251.51.138:7000, 148.251.51.138:7080`);
 });
 
 export default app; 
