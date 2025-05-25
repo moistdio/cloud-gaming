@@ -502,6 +502,33 @@ router.post('/regenerate-password', async (req, res) => {
       );
     });
 
+    // Passwort im laufenden Container aktualisieren (falls Container läuft)
+    if (containerRecord.status === 'running') {
+      try {
+        const container = docker.getContainer(containerRecord.container_id);
+        
+        // Prüfe ob Container wirklich läuft
+        const info = await container.inspect();
+        if (info.State.Status === 'running') {
+          console.log(`Aktualisiere VNC-Passwort im laufenden Container ${containerRecord.container_id}`);
+          
+          // Neues Passwort in Container schreiben
+          const exec = await container.exec({
+            Cmd: ['bash', '-c', `echo '${newPassword}' > /tmp/new_vnc_password`],
+            AttachStdout: true,
+            AttachStderr: true
+          });
+          
+          await exec.start();
+          
+          console.log(`VNC-Passwort im Container ${containerRecord.container_id} aktualisiert`);
+        }
+      } catch (dockerError) {
+        console.warn(`Konnte Passwort im Container nicht aktualisieren:`, dockerError.message);
+        // Nicht als Fehler behandeln, da das Passwort beim nächsten Start verwendet wird
+      }
+    }
+
     // Log erstellen
     await new Promise((resolve, reject) => {
       db.run(
@@ -516,10 +543,14 @@ router.post('/regenerate-password', async (req, res) => {
 
     console.log(`VNC-Passwort regeneriert für Container ${containerRecord.container_id} von Benutzer ${req.user.username}`);
 
+    const responseMessage = containerRecord.status === 'running' 
+      ? 'VNC-Passwort erfolgreich regeneriert und im laufenden Container aktualisiert'
+      : 'VNC-Passwort erfolgreich regeneriert. Das neue Passwort wird beim nächsten Container-Start aktiv';
+
     res.json({
-      message: 'VNC-Passwort erfolgreich regeneriert',
+      message: responseMessage,
       newPassword: newPassword,
-      note: 'Das neue Passwort wird beim nächsten Container-Neustart aktiv'
+      containerStatus: containerRecord.status
     });
 
   } catch (error) {

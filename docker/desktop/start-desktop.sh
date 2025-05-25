@@ -21,6 +21,40 @@ echo "  Display: $DISPLAY"
 echo "  User ID: $USER_ID"
 echo "  Port Range: VNC 11000-11430, Web 12000-12430"
 
+# Funktion zum Aktualisieren des VNC-Passworts
+update_vnc_password() {
+    local new_password="$1"
+    echo "🔐 Updating VNC password..."
+    
+    # VNC-Passwort-Datei aktualisieren
+    echo "$new_password" | vncpasswd -f > /home/user/.vnc/passwd
+    chmod 600 /home/user/.vnc/passwd
+    chown user:user /home/user/.vnc/passwd
+    
+    echo "✅ VNC password updated successfully"
+}
+
+# Funktion zum Überwachen von Passwort-Änderungen
+monitor_password_changes() {
+    while true; do
+        # Prüfe ob eine neue Passwort-Datei existiert
+        if [ -f /tmp/new_vnc_password ]; then
+            local new_password=$(cat /tmp/new_vnc_password)
+            if [ ! -z "$new_password" ] && [ "$new_password" != "$VNC_PASSWORD" ]; then
+                echo "🔄 New password detected, updating..."
+                update_vnc_password "$new_password"
+                VNC_PASSWORD="$new_password"
+                
+                # Temporäre Datei löschen
+                rm -f /tmp/new_vnc_password
+                
+                echo "📢 Password updated. New password: $new_password"
+            fi
+        fi
+        sleep 10
+    done
+}
+
 # Benutzer erstellen falls nicht vorhanden
 if ! id -u user >/dev/null 2>&1; then
     echo "👤 Creating user..."
@@ -36,9 +70,7 @@ chown -R user:user /home/user/.vnc
 
 # VNC-Passwort setzen
 echo "🔐 Setting VNC password..."
-echo "$VNC_PASSWORD" | vncpasswd -f > /home/user/.vnc/passwd
-chmod 600 /home/user/.vnc/passwd
-chown user:user /home/user/.vnc/passwd
+update_vnc_password "$VNC_PASSWORD"
 
 # X-Server Konfiguration
 echo "🖼️ Configuring X-Server..."
@@ -83,6 +115,9 @@ EOF
 # WebSocket-Proxy starten (verbindet noVNC mit VNC-Server)
 ./utils/novnc_proxy --vnc localhost:$VNC_PORT --listen $WEB_VNC_PORT &
 
+# Passwort-Monitor im Hintergrund starten
+monitor_password_changes &
+
 # Health-Check-Funktion
 health_check() {
     # Prüfe VNC-Server
@@ -114,6 +149,8 @@ if health_check; then
     echo "  Web Browser: http://localhost:$WEB_VNC_PORT"
     echo "  Password: $VNC_PASSWORD"
     echo ""
+    echo "💡 To update password: echo 'newpassword' > /tmp/new_vnc_password"
+    echo ""
 else
     echo "❌ Failed to start services"
     exit 1
@@ -139,6 +176,9 @@ cleanup() {
     
     # noVNC stoppen
     pkill -f novnc_proxy || true
+    
+    # Passwort-Monitor stoppen
+    pkill -f monitor_password_changes || true
     
     echo "✅ Shutdown complete"
     exit 0
