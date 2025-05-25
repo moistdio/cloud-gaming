@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     xfonts-100dpi \
     xfonts-scalable \
     xserver-xorg-core \
+    xvfb \
     # GPU und Graphics Support
     xserver-xorg-video-all \
     mesa-utils \

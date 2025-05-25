@@ -112,9 +112,14 @@ check_opengl() {
     if command -v glxinfo &> /dev/null; then
         # X-Server für Test starten (falls nicht läuft)
         export DISPLAY=:99
-        Xvfb :99 -screen 0 1024x768x24 &
-        XVFB_PID=$!
-        sleep 2
+        if command -v Xvfb &> /dev/null; then
+            Xvfb :99 -screen 0 1024x768x24 &
+            XVFB_PID=$!
+            sleep 2
+        else
+            log_warning "Xvfb not available, skipping OpenGL test"
+            return
+        fi
         
         # OpenGL-Informationen abrufen
         GL_RENDERER=$(glxinfo | grep "OpenGL renderer" | cut -d: -f2 | xargs)
@@ -164,9 +169,14 @@ check_video_acceleration() {
     # VA-API prüfen
     if command -v vainfo &> /dev/null; then
         export DISPLAY=:99
-        Xvfb :99 -screen 0 1024x768x24 &
-        XVFB_PID=$!
-        sleep 2
+        if command -v Xvfb &> /dev/null; then
+            Xvfb :99 -screen 0 1024x768x24 &
+            XVFB_PID=$!
+            sleep 2
+        else
+            log_warning "Xvfb not available, skipping VA-API test"
+            return
+        fi
         
         if vainfo 2>/dev/null | grep -q "VAProfile"; then
             log_success "VA-API hardware acceleration available"
