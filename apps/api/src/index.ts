@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import authRoutes from './routes/auth';
 
 // Load environment variables
 dotenv.config();
@@ -31,7 +32,9 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes placeholder
+// API routes
+app.use('/api/auth', authRoutes);
+
 app.get('/api/status', (req, res) => {
   res.json({ 
     message: 'CloudStream API is running',
@@ -76,6 +79,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`🚀 CloudStream API server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
   console.log(`📈 Metrics: http://localhost:${PORT}/metrics`);
 });
 
