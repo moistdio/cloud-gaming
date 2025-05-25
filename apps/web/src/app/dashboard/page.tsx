@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gaming-dark via-gaming-darker to-black">
@@ -12,6 +14,12 @@ export default function DashboardPage() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
+              <Link 
+                href="/streaming" 
+                className="bg-gaming-primary hover:bg-gaming-secondary text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                🎮 Start Gaming
+              </Link>
               <span className="text-gray-300">Welcome to CloudStream!</span>
             </div>
           </div>
@@ -26,17 +34,44 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="bg-gray-700/50 rounded-lg p-6">
                 <h3 className="text-xl font-semibold text-white mb-2">Game Library</h3>
-                <p className="text-gray-300">No games available yet.</p>
+                <p className="text-gray-300 mb-4">No games available yet.</p>
+                <button className="text-gaming-primary hover:text-gaming-secondary transition-colors">
+                  Browse Games →
+                </button>
               </div>
 
-              <div className="bg-gray-700/50 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-2">Streaming</h3>
-                <p className="text-gray-300">Start a gaming session.</p>
-              </div>
+              <Link href="/streaming" className="bg-gray-700/50 hover:bg-gray-600/50 rounded-lg p-6 transition-colors cursor-pointer">
+                <h3 className="text-xl font-semibold text-white mb-2">🎮 Cloud Gaming</h3>
+                <p className="text-gray-300 mb-4">Start your personal gaming session with isolated desktop environment.</p>
+                <span className="text-gaming-primary hover:text-gaming-secondary transition-colors">
+                  Start Session →
+                </span>
+              </Link>
 
               <div className="bg-gray-700/50 rounded-lg p-6">
                 <h3 className="text-xl font-semibold text-white mb-2">Settings</h3>
-                <p className="text-gray-300">Configure your preferences.</p>
+                <p className="text-gray-300 mb-4">Configure your preferences.</p>
+                <button className="text-gaming-primary hover:text-gaming-secondary transition-colors">
+                  Open Settings →
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-8 bg-gradient-to-r from-gaming-primary/20 to-gaming-secondary/20 rounded-lg p-6 border border-gaming-primary/30">
+              <h3 className="text-xl font-semibold text-white mb-2">🚀 Get Started</h3>
+              <p className="text-gray-300 mb-4">
+                CloudStream provides isolated gaming environments for each user. Click "Start Gaming" to launch your personal desktop with Steam and other applications.
+              </p>
+              <div className="flex space-x-4">
+                <Link 
+                  href="/streaming" 
+                  className="bg-gaming-primary hover:bg-gaming-secondary text-white px-6 py-2 rounded-lg transition-colors"
+                >
+                  🎮 Launch Gaming Session
+                </Link>
+                <button className="border border-gaming-primary text-gaming-primary hover:bg-gaming-primary hover:text-white px-6 py-2 rounded-lg transition-colors">
+                  📖 View Documentation
+                </button>
               </div>
             </div>
           </div>
