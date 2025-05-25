@@ -21,72 +21,53 @@ fi
 # Setup PulseAudio for Steam audio
 echo "🔊 Setting up PulseAudio for Steam..."
 
-# Create PulseAudio directories
-mkdir -p /home/user/.config/pulse
-mkdir -p /home/user/.pulse
-mkdir -p /tmp/pulse-runtime
-chown -R user:user /home/user/.config/pulse
-chown -R user:user /home/user/.pulse
-chown user:user /tmp/pulse-runtime
-
-# Create PulseAudio configuration
-cat > /home/user/.config/pulse/client.conf << 'EOF'
-# PulseAudio client configuration
-autospawn = yes
-daemon-binary = /usr/bin/pulseaudio
-extra-arguments = --log-target=stderr --disable-shm=yes
-EOF
-
-cat > /home/user/.config/pulse/daemon.conf << 'EOF'
-# PulseAudio daemon configuration
-daemonize = no
-fail = yes
-high-priority = yes
-nice-level = -11
-realtime-scheduling = yes
-realtime-priority = 5
-rlimit-rtprio = 9
-rlimit-rttime = 200000
-default-sample-format = s16le
-default-sample-rate = 44100
-default-sample-channels = 2
-default-channel-map = front-left,front-right
-default-fragments = 2
-default-fragment-size-msec = 25
-enable-shm = no
-enable-memfd = yes
-EOF
-
-cat > /home/user/.config/pulse/default.pa << 'EOF'
+# Create system-wide PulseAudio configuration
+cat > /etc/pulse/system.pa << 'EOF'
 #!/usr/bin/pulseaudio -nF
-# PulseAudio default configuration
+# System-wide PulseAudio configuration
 
-# Load audio drivers
-load-module module-null-sink sink_name=dummy
-load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-runtime/native
+# Load null sink for dummy audio
+load-module module-null-sink sink_name=dummy sink_properties=device.description="Dummy_Output"
+
+# Load native protocol with no authentication
+load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-native
 
 # Set default sink
 set-default-sink dummy
 EOF
 
+# Create client configuration to disable authentication
+cat > /etc/pulse/client.conf << 'EOF'
+# System-wide client configuration
+default-server = unix:/tmp/pulse-native
+autospawn = no
+EOF
+
+# Create user client configuration
+mkdir -p /home/user/.config/pulse
+cat > /home/user/.config/pulse/client.conf << 'EOF'
+# User client configuration
+default-server = unix:/tmp/pulse-native
+autospawn = no
+EOF
 chown -R user:user /home/user/.config/pulse
 
 # Set PulseAudio environment variables
-export PULSE_RUNTIME_PATH=/tmp/pulse-runtime
-export PULSE_NATIVE="unix:/tmp/pulse-runtime/native"
+export PULSE_SERVER="unix:/tmp/pulse-native"
 
-# Start PulseAudio as user with proper configuration
-echo "🎵 Starting PulseAudio..."
-sudo -u user -E bash -c "
-export HOME=/home/user
-export PULSE_RUNTIME_PATH=/tmp/pulse-runtime
-export PULSE_NATIVE=unix:/tmp/pulse-runtime/native
-mkdir -p /tmp/pulse-runtime
-pulseaudio --start --log-target=stderr --disable-shm=yes --exit-idle-time=-1
-" &
+# Start PulseAudio in system mode with no authentication
+echo "🎵 Starting PulseAudio in system mode..."
+pulseaudio --system --disallow-exit --disallow-module-loading=false --disable-shm --log-target=stderr &
 
 # Wait for PulseAudio to start
-sleep 2
+sleep 3
+
+# Test PulseAudio connection
+if pulseaudio --check -v; then
+    echo "✅ PulseAudio started successfully"
+else
+    echo "⚠️ PulseAudio may have issues, but continuing..."
+fi
 
 # GPU-Initialisierung ausführen
 echo "🎮 Initializing GPU hardware..."
@@ -202,8 +183,7 @@ export __GL_THREADED_OPTIMIZATIONS=1
 # Steam-spezifische Umgebungsvariablen
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam
 export STEAM_COMPAT_DATA_PATH=/home/user/.steam/steam
-export PULSE_RUNTIME_PATH=/tmp/pulse-runtime
-export PULSE_NATIVE="unix:/tmp/pulse-runtime/native"
+export PULSE_SERVER="unix:/tmp/pulse-native"
 
 # Steam sandbox fallback flags (set during user namespace check)
 if [ ! -z "$STEAM_EXTRA_FLAGS" ]; then
@@ -371,9 +351,8 @@ cleanup() {
     pkill -f monitor_password_changes || true
     
     # Stop PulseAudio properly
-    sudo -u user pulseaudio --kill || true
     pkill pulseaudio || true
-    rm -rf /tmp/pulse-runtime || true
+    rm -f /tmp/pulse-native || true
     
     echo "✅ Shutdown complete"
     exit 0
