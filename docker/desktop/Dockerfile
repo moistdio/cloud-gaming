@@ -92,19 +92,34 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86
     && dpkg -i cuda-keyring_1.0-1_all.deb \
     && rm cuda-keyring_1.0-1_all.deb
 
-# NVIDIA Treiber und CUDA installieren
-RUN apt-get update && apt-get install -y \
-    # NVIDIA Treiber
-    nvidia-driver-535 \
-    nvidia-utils-535 \
-    # CUDA Toolkit
-    cuda-toolkit-12-2 \
-    # NVIDIA Container Toolkit
-    nvidia-container-toolkit \
-    # Zusätzliche GPU Libraries
-    libnvidia-gl-535 \
-    libnvidia-encode-535 \
-    libnvidia-decode-535 \
+# NVIDIA Treiber und CUDA installieren (Latest available with fallback)
+RUN apt-get update && \
+    # Try to install latest driver (550), fallback to 545, then 535
+    (apt-get install -y \
+        nvidia-driver-550 \
+        nvidia-utils-550 \
+        libnvidia-gl-550 \
+        libnvidia-encode-550 \
+        libnvidia-decode-550 \
+    ) || \
+    (echo "Driver 550 not available, trying 545..." && apt-get install -y \
+        nvidia-driver-545 \
+        nvidia-utils-545 \
+        libnvidia-gl-545 \
+        libnvidia-encode-545 \
+        libnvidia-decode-545 \
+    ) || \
+    (echo "Driver 545 not available, using 535..." && apt-get install -y \
+        nvidia-driver-535 \
+        nvidia-utils-535 \
+        libnvidia-gl-535 \
+        libnvidia-encode-535 \
+        libnvidia-decode-535 \
+    ) && \
+    # Install CUDA and container toolkit
+    apt-get install -y \
+        cuda-toolkit \
+        nvidia-container-toolkit \
     # GLVND (GL Vendor Neutral Dispatch) Libraries
     libglvnd0 \
     libglvnd-dev \
