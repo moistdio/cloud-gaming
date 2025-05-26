@@ -468,23 +468,24 @@ EOF
             # Enhanced fallback configuration for Steam compatibility (GitHub issue #393003)
             log_info "Creating enhanced NVIDIA Vulkan ICD configurations..."
             
-            # Primary configuration with libGLX_nvidia.so.0 (what Steam expects)
+            # Primary configuration with correct NVIDIA Vulkan driver (CRITICAL FIX)
+            # The key issue was using libGLX_nvidia.so.0 instead of the actual Vulkan driver
             cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
 {
     "file_format_version": "1.0.0",
     "ICD": {
-        "library_path": "libGLX_nvidia.so.0",
+        "library_path": "libvulkan_nvidia.so.1",
         "api_version": "1.3.0"
     }
 }
 EOF
             
-            # Alternative configuration with proper Vulkan library
+            # Alternative configuration for different NVIDIA driver versions
             cat > /usr/share/vulkan/icd.d/nvidia_vulkan_icd.json << EOF
 {
     "file_format_version": "1.0.0",
     "ICD": {
-        "library_path": "libvulkan_nvidia.so.1",
+        "library_path": "libvulkan_nvidia.so",
         "api_version": "1.3.0"
     }
 }

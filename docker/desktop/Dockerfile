@@ -101,6 +101,8 @@ RUN apt-get update && \
         libnvidia-gl-550 \
         libnvidia-encode-550 \
         libnvidia-decode-550 \
+        # NVIDIA Vulkan driver (CRITICAL for Steam Vulkan support)
+        libnvidia-vulkan-550 \
     ) || \
     (echo "Driver 550 not available, trying 545..." && apt-get install -y \
         nvidia-driver-545 \
@@ -108,6 +110,8 @@ RUN apt-get update && \
         libnvidia-gl-545 \
         libnvidia-encode-545 \
         libnvidia-decode-545 \
+        # NVIDIA Vulkan driver for 545
+        libnvidia-vulkan-545 \
     ) || \
     (echo "Driver 545 not available, using 535..." && apt-get install -y \
         nvidia-driver-535 \
@@ -115,6 +119,8 @@ RUN apt-get update && \
         libnvidia-gl-535 \
         libnvidia-encode-535 \
         libnvidia-decode-535 \
+        # NVIDIA Vulkan driver for 535
+        libnvidia-vulkan-535 \
     ) && \
     # Install CUDA and container toolkit
     apt-get install -y \
