@@ -100,7 +100,20 @@ if [ -f "/tmp/gpu_info.json" ]; then
     echo "  Memory: ${GPU_MEMORY}MB"
 fi
 
-# Funktion zum Aktualisieren des VNC-Passworts
+# Funktion zum Setzen des initialen VNC-Passworts (ohne Service-Restart)
+set_initial_vnc_password() {
+    local password="$1"
+    echo "🔐 Setting initial VNC password..."
+    
+    # VNC-Passwort-Datei erstellen
+    echo "$password" | vncpasswd -f > /home/user/.vnc/passwd
+    chmod 600 /home/user/.vnc/passwd
+    chown user:user /home/user/.vnc/passwd
+    
+    echo "✅ Initial VNC password set successfully"
+}
+
+# Funktion zum Aktualisieren des VNC-Passworts (mit Service-Restart)
 update_vnc_password() {
     local new_password="$1"
     echo "🔐 Updating VNC password..."
@@ -110,20 +123,25 @@ update_vnc_password() {
     chmod 600 /home/user/.vnc/passwd
     chown user:user /home/user/.vnc/passwd
     
-    # Restart x11vnc server with new password
-    echo "🔄 Restarting x11vnc server with new password..."
-    pkill -f "x11vnc.*$VNC_PORT" || true
-    sleep 2
-    x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $new_password -shared -forever -noxdamage -noxfixes -noxcomposite -bg
-    
-    # Restart noVNC proxy to ensure clean connection
-    echo "🔄 Restarting noVNC proxy..."
-    pkill -f novnc_proxy || true
-    sleep 2
-    cd /opt/noVNC
-    ./utils/novnc_proxy --vnc localhost:$VNC_PORT --listen $WEB_VNC_PORT &
-    
-    echo "✅ VNC password updated and services restarted successfully"
+    # Only restart services if X server is running
+    if pgrep -f "Xvfb $DISPLAY" > /dev/null; then
+        # Restart x11vnc server with new password
+        echo "🔄 Restarting x11vnc server with new password..."
+        pkill -f "x11vnc.*$VNC_PORT" || true
+        sleep 2
+        x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $new_password -shared -forever -noxdamage -noxfixes -noxcomposite -bg
+        
+        # Restart noVNC proxy to ensure clean connection
+        echo "🔄 Restarting noVNC proxy..."
+        pkill -f novnc_proxy || true
+        sleep 2
+        cd /opt/noVNC
+        ./utils/novnc_proxy --vnc localhost:$VNC_PORT --listen $WEB_VNC_PORT &
+        
+        echo "✅ VNC password updated and services restarted successfully"
+    else
+        echo "✅ VNC password updated (services will use new password when started)"
+    fi
 }
 
 # Funktion zum Überwachen von Passwort-Änderungen
@@ -167,8 +185,7 @@ mkdir -p /home/user/.vnc
 chown -R user:user /home/user/.vnc
 
 # VNC-Passwort setzen
-echo "🔐 Setting VNC password..."
-update_vnc_password "$VNC_PASSWORD"
+set_initial_vnc_password "$VNC_PASSWORD"
 
 # X-Server Konfiguration
 echo "🖼️ Configuring X-Server..."
