@@ -93,6 +93,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86
     && rm cuda-keyring_1.0-1_all.deb
 
 # NVIDIA Treiber und CUDA installieren (Latest available with fallback)
+# Note: NVIDIA Vulkan support is included in the main driver packages
 RUN apt-get update && \
     # Try to install latest driver (550), fallback to 545, then 535
     (apt-get install -y \
@@ -101,8 +102,6 @@ RUN apt-get update && \
         libnvidia-gl-550 \
         libnvidia-encode-550 \
         libnvidia-decode-550 \
-        # NVIDIA Vulkan driver (CRITICAL for Steam Vulkan support)
-        libnvidia-vulkan-550 \
     ) || \
     (echo "Driver 550 not available, trying 545..." && apt-get install -y \
         nvidia-driver-545 \
@@ -110,8 +109,6 @@ RUN apt-get update && \
         libnvidia-gl-545 \
         libnvidia-encode-545 \
         libnvidia-decode-545 \
-        # NVIDIA Vulkan driver for 545
-        libnvidia-vulkan-545 \
     ) || \
     (echo "Driver 545 not available, using 535..." && apt-get install -y \
         nvidia-driver-535 \
@@ -119,8 +116,6 @@ RUN apt-get update && \
         libnvidia-gl-535 \
         libnvidia-encode-535 \
         libnvidia-decode-535 \
-        # NVIDIA Vulkan driver for 535
-        libnvidia-vulkan-535 \
     ) && \
     # Install CUDA and container toolkit
     apt-get install -y \
@@ -228,6 +223,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Vulkan Support installieren (enhanced based on GitHub issue #393003)
+# Note: NVIDIA Vulkan driver is included in nvidia-driver packages above
+# This installs the Vulkan loader and tools for all GPU types
 RUN apt-get update && apt-get install -y \
     vulkan-tools \
     vulkan-validationlayers \

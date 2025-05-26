@@ -401,6 +401,7 @@ EOF
         mkdir -p /etc/vulkan/icd.d 2>/dev/null || log_warning "/etc/vulkan/icd.d is read-only, using /usr/share/vulkan/icd.d only"
         
         # Suche nach verfügbaren NVIDIA Vulkan-Bibliotheken
+        # NVIDIA Vulkan support is included in the main driver packages
         NVIDIA_VULKAN_PATHS=(
             "/usr/lib/x86_64-linux-gnu/libvulkan_nvidia.so"
             "/usr/lib/x86_64-linux-gnu/libvulkan_nvidia.so.1"
@@ -409,6 +410,9 @@ EOF
             "/usr/lib/x86_64-linux-gnu/nvidia/nvidia_icd.json"
             "/usr/share/vulkan/icd.d/nvidia_icd.json"
             "/usr/lib/x86_64-linux-gnu/nvidia_icd.json"
+            # Additional paths where NVIDIA driver may install Vulkan libraries
+            "/usr/lib/x86_64-linux-gnu/libnvidia-vulkan.so"
+            "/usr/lib/x86_64-linux-gnu/libnvidia-vulkan.so.1"
         )
         
         # Zusätzlich: Suche nach NVIDIA Vulkan-Bibliotheken mit find
