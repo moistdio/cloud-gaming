@@ -495,6 +495,27 @@ EOF
         echo "VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d" >> /etc/environment
         echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         
+        # Additional Steam-compatible Vulkan environment variables
+        echo "VK_INSTANCE_LAYERS=" >> /etc/environment
+        echo "VK_DEVICE_LAYERS=" >> /etc/environment
+        
+        # Create Steam-specific Vulkan configuration
+        mkdir -p /home/user/.config/steam
+        cat > /home/user/.config/steam/vulkan_env.sh << 'EOF'
+#!/bin/bash
+# Steam Vulkan Environment Configuration
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
+export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
+export VK_INSTANCE_LAYERS=""
+export VK_DEVICE_LAYERS=""
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export LIBGL_ALWAYS_INDIRECT=0
+export LIBGL_ALWAYS_SOFTWARE=0
+EOF
+        chmod +x /home/user/.config/steam/vulkan_env.sh
+        chown -R user:user /home/user/.config/steam
+        
         # Teste Vulkan-Verfügbarkeit
         if command -v vulkaninfo &> /dev/null; then
             log_info "Testing Vulkan availability..."

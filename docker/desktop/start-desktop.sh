@@ -234,6 +234,10 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulka
 export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 
+# Additional Vulkan environment variables for Steam compatibility
+export VK_INSTANCE_LAYERS=""
+export VK_DEVICE_LAYERS=""
+
 # CUDA-Pfade
 export PATH=/usr/local/cuda/bin:\$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu/nvidia:\$LD_LIBRARY_PATH

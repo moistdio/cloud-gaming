@@ -233,6 +233,14 @@ RUN apt-get update && apt-get install -y \
 # NVIDIA Vulkan ICD Verzeichnis erstellen (wird von gpu-init.sh konfiguriert)
 RUN mkdir -p /usr/share/vulkan/icd.d
 
+# Set system-wide Vulkan environment variables
+RUN echo '# Vulkan Environment Variables for Steam and Games' >> /etc/environment && \
+    echo 'VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /etc/environment && \
+    echo 'VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d' >> /etc/environment && \
+    echo 'VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /etc/environment && \
+    echo 'VK_INSTANCE_LAYERS=' >> /etc/environment && \
+    echo 'VK_DEVICE_LAYERS=' >> /etc/environment
+
 # Zusätzliche Vulkan-Bibliotheken installieren (verfügbare Pakete)
 RUN apt-get update && apt-get install -y \
     # Mesa Vulkan Fallback
@@ -272,7 +280,13 @@ RUN mkdir -p /home/user/.steam && \
     # Steam-Konfiguration für Container-Optimierung
     echo 'export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam' >> /home/user/.bashrc && \
     echo 'export STEAM_RUNTIME=1' >> /home/user/.bashrc && \
-    echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /home/user/.bashrc
+    echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /home/user/.bashrc && \
+    # Vulkan environment variables for Steam
+    echo 'export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /home/user/.bashrc && \
+    echo 'export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d' >> /home/user/.bashrc && \
+    echo 'export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /home/user/.bashrc && \
+    echo 'export VK_INSTANCE_LAYERS=""' >> /home/user/.bashrc && \
+    echo 'export VK_DEVICE_LAYERS=""' >> /home/user/.bashrc
 
 # Desktop-Konfiguration für XFCE4
 RUN mkdir -p /home/user/.config/xfce4/xfconf/xfce-perchannel-xml && \
@@ -359,13 +373,13 @@ EndSection' > /etc/X11/xorg.conf.d/10-nvidia.conf
 
 # Desktop-Shortcuts erstellen
 RUN mkdir -p /home/user/Desktop && \
-    # Steam Desktop-Shortcut
+    # Steam Desktop-Shortcut with Vulkan support
     echo '[Desktop Entry]' > /home/user/Desktop/Steam.desktop && \
     echo 'Version=1.0' >> /home/user/Desktop/Steam.desktop && \
     echo 'Type=Application' >> /home/user/Desktop/Steam.desktop && \
     echo 'Name=Steam' >> /home/user/Desktop/Steam.desktop && \
     echo 'Comment=Application for managing and playing games on Steam' >> /home/user/Desktop/Steam.desktop && \
-    echo 'Exec=steam' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Exec=bash -c "source /home/user/.config/steam/vulkan_env.sh 2>/dev/null || true; steam"' >> /home/user/Desktop/Steam.desktop && \
     echo 'Icon=steam' >> /home/user/Desktop/Steam.desktop && \
     echo 'Terminal=false' >> /home/user/Desktop/Steam.desktop && \
     echo 'Categories=Game;' >> /home/user/Desktop/Steam.desktop && \
