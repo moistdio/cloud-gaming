@@ -110,7 +110,20 @@ update_vnc_password() {
     chmod 600 /home/user/.vnc/passwd
     chown user:user /home/user/.vnc/passwd
     
-    echo "✅ VNC password updated successfully"
+    # Restart x11vnc server with new password
+    echo "🔄 Restarting x11vnc server with new password..."
+    pkill -f "x11vnc.*$VNC_PORT" || true
+    sleep 2
+    x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $new_password -shared -forever -noxdamage -noxfixes -noxcomposite -bg
+    
+    # Restart noVNC proxy to ensure clean connection
+    echo "🔄 Restarting noVNC proxy..."
+    pkill -f novnc_proxy || true
+    sleep 2
+    cd /opt/noVNC
+    ./utils/novnc_proxy --vnc localhost:$VNC_PORT --listen $WEB_VNC_PORT &
+    
+    echo "✅ VNC password updated and services restarted successfully"
 }
 
 # Funktion zum Überwachen von Passwort-Änderungen
@@ -127,7 +140,13 @@ monitor_password_changes() {
                 # Temporäre Datei löschen
                 rm -f /tmp/new_vnc_password
                 
-                echo "📢 Password updated. New password: $new_password"
+                # Verify services are running after password change
+                sleep 3
+                if health_check; then
+                    echo "📢 Password updated successfully. New password: $new_password"
+                else
+                    echo "⚠️ Password updated but some services may need manual restart"
+                fi
             fi
         fi
         sleep 10
@@ -401,7 +420,7 @@ while true; do
             # Start window manager
             sudo -u user DISPLAY=$DISPLAY /home/user/.vnc/xstartup &
             
-            # Start x11vnc
+            # Start x11vnc with current password
             x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -bg
         fi
         
