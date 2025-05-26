@@ -243,13 +243,8 @@ RUN echo '# Vulkan Environment Variables for Steam and Games (GitHub issue #3930
     echo 'VK_LOADER_DEBUG=error' >> /etc/environment && \
     echo 'VK_LOADER_LAYERS_ENABLE=' >> /etc/environment
 
-# Zusätzliche Vulkan-Bibliotheken installieren (verfügbare Pakete)
-# Based on GitHub issue #393003 solution
+# Additional Vulkan development packages (GitHub issue #393003 solution)
 RUN apt-get update && apt-get install -y \
-    # Mesa Vulkan Fallback
-    mesa-vulkan-drivers \
-    vulkan-tools \
-    vulkan-validationlayers \
     # Additional packages for Steam Vulkan compatibility
     libvulkan-dev \
     && apt-get clean \
@@ -380,13 +375,13 @@ EndSection' > /etc/X11/xorg.conf.d/10-nvidia.conf
 
 # Desktop-Shortcuts erstellen
 RUN mkdir -p /home/user/Desktop && \
-    # Steam Desktop-Shortcut with Vulkan support
+    # Steam Desktop-Shortcut with enhanced Vulkan support (GitHub issue #393003 fix)
     echo '[Desktop Entry]' > /home/user/Desktop/Steam.desktop && \
     echo 'Version=1.0' >> /home/user/Desktop/Steam.desktop && \
     echo 'Type=Application' >> /home/user/Desktop/Steam.desktop && \
-    echo 'Name=Steam' >> /home/user/Desktop/Steam.desktop && \
-    echo 'Comment=Application for managing and playing games on Steam' >> /home/user/Desktop/Steam.desktop && \
-    echo 'Exec=bash -c "source /home/user/.config/steam/vulkan_env.sh 2>/dev/null || true; steam"' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Name=Steam (Enhanced Vulkan)' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Comment=Steam with enhanced Vulkan environment for gaming' >> /home/user/Desktop/Steam.desktop && \
+    echo 'Exec=/usr/local/bin/steam-vulkan' >> /home/user/Desktop/Steam.desktop && \
     echo 'Icon=steam' >> /home/user/Desktop/Steam.desktop && \
     echo 'Terminal=false' >> /home/user/Desktop/Steam.desktop && \
     echo 'Categories=Game;' >> /home/user/Desktop/Steam.desktop && \
@@ -423,6 +418,42 @@ RUN chmod +x /usr/local/bin/steam-wrapper.sh
 # Steam-Initialisierungs-Script kopieren
 COPY steam-init.sh /usr/local/bin/steam-init.sh
 RUN chmod +x /usr/local/bin/steam-init.sh
+
+# Create enhanced Steam launcher with Vulkan support (GitHub issue #393003 fix)
+RUN echo '#!/bin/bash' > /usr/local/bin/steam-vulkan && \
+    echo '# Enhanced Steam launcher with Vulkan support (GitHub issue #393003 comprehensive fix)' >> /usr/local/bin/steam-vulkan && \
+    echo '' >> /usr/local/bin/steam-vulkan && \
+    echo '# Source Vulkan environment if available' >> /usr/local/bin/steam-vulkan && \
+    echo 'if [ -f "/home/user/.config/steam/vulkan_env.sh" ]; then' >> /usr/local/bin/steam-vulkan && \
+    echo '    source /home/user/.config/steam/vulkan_env.sh' >> /usr/local/bin/steam-vulkan && \
+    echo 'else' >> /usr/local/bin/steam-vulkan && \
+    echo '    # Fallback environment variables' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_INSTANCE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_DEVICE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_LOADER_DEBUG=error' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_LOADER_LAYERS_ENABLE=""' >> /usr/local/bin/steam-vulkan && \
+    echo '    export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /usr/local/bin/steam-vulkan && \
+    echo '    export LIBGL_ALWAYS_INDIRECT=0' >> /usr/local/bin/steam-vulkan && \
+    echo '    export LIBGL_ALWAYS_SOFTWARE=0' >> /usr/local/bin/steam-vulkan && \
+    echo '    export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"' >> /usr/local/bin/steam-vulkan && \
+    echo '    export DISPLAY=:1' >> /usr/local/bin/steam-vulkan && \
+    echo '    export XDG_RUNTIME_DIR=/tmp/runtime-user' >> /usr/local/bin/steam-vulkan && \
+    echo '    mkdir -p $XDG_RUNTIME_DIR 2>/dev/null || true' >> /usr/local/bin/steam-vulkan && \
+    echo '    chmod 700 $XDG_RUNTIME_DIR 2>/dev/null || true' >> /usr/local/bin/steam-vulkan && \
+    echo 'fi' >> /usr/local/bin/steam-vulkan && \
+    echo '' >> /usr/local/bin/steam-vulkan && \
+    echo '# Additional Steam flags for container compatibility' >> /usr/local/bin/steam-vulkan && \
+    echo 'STEAM_FLAGS="--no-cef-sandbox --disable-gpu-sandbox --in-process-gpu --disable-dev-shm-usage --disable-software-rasterizer --enable-features=VaapiVideoDecoder --use-gl=desktop"' >> /usr/local/bin/steam-vulkan && \
+    echo '' >> /usr/local/bin/steam-vulkan && \
+    echo 'echo "🚀 Starting Steam with enhanced Vulkan support..."' >> /usr/local/bin/steam-vulkan && \
+    echo 'echo "Environment: VK_ICD_FILENAMES=$VK_ICD_FILENAMES"' >> /usr/local/bin/steam-vulkan && \
+    echo '' >> /usr/local/bin/steam-vulkan && \
+    echo '# Start Steam with all optimizations' >> /usr/local/bin/steam-vulkan && \
+    echo 'exec steam $STEAM_FLAGS "$@"' >> /usr/local/bin/steam-vulkan && \
+    chmod +x /usr/local/bin/steam-vulkan
 
 # Startup-Script kopieren
 COPY start-desktop.sh /usr/local/bin/start-desktop.sh

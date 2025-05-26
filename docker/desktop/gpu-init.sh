@@ -436,7 +436,7 @@ EOF
             fi
         done
         
-        # Erstelle NVIDIA Vulkan ICD Konfiguration
+        # Erstelle NVIDIA Vulkan ICD Konfiguration (GitHub issue #393003 comprehensive fix)
         if [ ! -z "$NVIDIA_ICD_JSON" ]; then
             # Verwende existierende ICD-Konfiguration
             if [ "$NVIDIA_ICD_JSON" != "/usr/share/vulkan/icd.d/nvidia_icd.json" ]; then
@@ -465,64 +465,100 @@ EOF
             fi
             log_success "NVIDIA Vulkan ICD configured with library: $LIB_NAME"
         else
-            # Fallback-Konfiguration mit verschiedenen möglichen Bibliotheksnamen
-            for lib_name in "libvulkan_nvidia.so.1" "libvulkan_nvidia.so" "nvidia_icd"; do
-                cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
+            # Enhanced fallback configuration for Steam compatibility (GitHub issue #393003)
+            log_info "Creating enhanced NVIDIA Vulkan ICD configurations..."
+            
+            # Primary configuration with libGLX_nvidia.so.0 (what Steam expects)
+            cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
 {
     "file_format_version": "1.0.0",
     "ICD": {
-        "library_path": "$lib_name",
+        "library_path": "libGLX_nvidia.so.0",
         "api_version": "1.3.0"
     }
 }
 EOF
-                # Try to copy to /etc/vulkan/icd.d if writable
-                if [ -w "/etc/vulkan/icd.d" ]; then
-                    cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
-                fi
-                log_warning "NVIDIA Vulkan ICD configured with fallback: $lib_name"
-                break
-            done
+            
+            # Alternative configuration with proper Vulkan library
+            cat > /usr/share/vulkan/icd.d/nvidia_vulkan_icd.json << EOF
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "libvulkan_nvidia.so.1",
+        "api_version": "1.3.0"
+    }
+}
+EOF
+            
+            # Copy to /etc/vulkan/icd.d if writable
+            if [ -w "/etc/vulkan/icd.d" ]; then
+                cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+                cp /usr/share/vulkan/icd.d/nvidia_vulkan_icd.json /etc/vulkan/icd.d/nvidia_vulkan_icd.json 2>/dev/null || true
+            fi
+            
+            log_success "Enhanced NVIDIA Vulkan ICD configurations created for Steam compatibility"
         fi
         
         # Setze Vulkan-Umgebungsvariablen für bessere Kompatibilität
-        # Based on GitHub issue #393003 solution
-        echo "# NVIDIA Vulkan Environment Variables (GitHub issue #393003 fix)" >> /etc/environment
+        # Enhanced based on GitHub issue #393003 comprehensive solution
+        echo "# Enhanced NVIDIA Vulkan Environment Variables (GitHub issue #393003 comprehensive fix)" >> /etc/environment
         if [ -w "/etc/vulkan/icd.d" ]; then
-            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
+            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json:/etc/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         else
-            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
+            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json" >> /etc/environment
         fi
-        echo "VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d" >> /etc/environment
+        echo "VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d" >> /etc/environment
         echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         
-        # Ensure vulkan-loader is properly configured
+        # Enhanced vulkan-loader configuration for Steam compatibility
         echo "VK_LOADER_DEBUG=error" >> /etc/environment
         echo "VK_LOADER_LAYERS_ENABLE=" >> /etc/environment
+        echo "VULKAN_SDK=" >> /etc/environment
         
-        # Additional Steam-compatible Vulkan environment variables
+        # Steam-compatible Vulkan environment variables
         echo "VK_INSTANCE_LAYERS=" >> /etc/environment
         echo "VK_DEVICE_LAYERS=" >> /etc/environment
         
-        # Create Steam-specific Vulkan configuration
-        # Based on GitHub issue #393003 solution
+        # Create enhanced Steam-specific Vulkan configuration
+        # Comprehensive solution based on GitHub issue #393003
         mkdir -p /home/user/.config/steam
         cat > /home/user/.config/steam/vulkan_env.sh << 'EOF'
 #!/bin/bash
-# Steam Vulkan Environment Configuration (GitHub issue #393003 fix)
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
+# Enhanced Steam Vulkan Environment Configuration (GitHub issue #393003 comprehensive fix)
+
+# Core Vulkan environment variables with multiple ICD paths
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json
+export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_INSTANCE_LAYERS=""
 export VK_DEVICE_LAYERS=""
 export VK_LOADER_DEBUG=error
 export VK_LOADER_LAYERS_ENABLE=""
+export VULKAN_SDK=""
+
+# NVIDIA-specific environment variables
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export LIBGL_ALWAYS_INDIRECT=0
 export LIBGL_ALWAYS_SOFTWARE=0
+export __GL_SYNC_TO_VBLANK=1
+export __GL_YIELD=USLEEP
+export VDPAU_DRIVER=nvidia
 
 # Ensure graphics drivers are available in Steam environment
-export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+
+# Steam-specific optimizations
+export STEAM_RUNTIME_PREFER_HOST_LIBRARIES=0
+export STEAM_RUNTIME=1
+
+# X11 and display variables for container environment
+export DISPLAY=:1
+export XDG_RUNTIME_DIR=/tmp/runtime-user
+mkdir -p $XDG_RUNTIME_DIR 2>/dev/null || true
+chmod 700 $XDG_RUNTIME_DIR 2>/dev/null || true
+
+echo "🎮 Enhanced Vulkan environment configured for Steam"
+echo "VK_ICD_FILENAMES: $VK_ICD_FILENAMES"
 EOF
         chmod +x /home/user/.config/steam/vulkan_env.sh
         chown -R user:user /home/user/.config/steam
