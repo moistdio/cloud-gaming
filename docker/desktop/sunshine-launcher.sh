@@ -45,7 +45,7 @@ if [ ! -f "$SUNSHINE_CONFIG_FILE" ]; then
 
 # Network Configuration
 address_family = both
-port = 47989
+port = ${SUNSHINE_BASE_PORT:-47984}
 origin_web_ui_allowed = pc
 
 # Display Configuration (CRITICAL for container environments)
@@ -177,7 +177,7 @@ export SUNSHINE_CONFIG_FILE="$SUNSHINE_CONFIG_FILE"
 # Show network information
 echo "🌐 Network Information:"
 echo "   Container IP: $(hostname -I | awk '{print $1}')"
-echo "   Sunshine Web UI: http://$(hostname -I | awk '{print $1}'):47990"
+echo "   Sunshine Web UI: http://$(hostname -I | awk '{print $1}'):$((${SUNSHINE_BASE_PORT:-47984} + 6))"
 echo "   Default credentials: user / sunshine"
 
 # Start Sunshine
@@ -239,7 +239,7 @@ echo "   If you see 'Unable to find display or encoder' errors:"
 echo "   1. Check that X11 is running: xdpyinfo -display :1"
 echo "   2. Try software encoding first (already configured)"
 echo "   3. Check logs at: /home/user/.config/sunshine/sunshine.log"
-echo "   4. Web UI will be at: http://$(hostname -I | awk '{print $1}'):47990"
+echo "   4. Web UI will be at: http://$(hostname -I | awk '{print $1}'):$((${SUNSHINE_BASE_PORT:-47984} + 6))"
 echo ""
 
 # Run Sunshine as user with proper environment

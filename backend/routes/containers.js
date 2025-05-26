@@ -13,7 +13,7 @@ const VNC_PORT_END = 11430;
 const WEB_VNC_PORT_START = 12000;
 const WEB_VNC_PORT_END = 12430;
 const SUNSHINE_PORT_START = 47984;
-const SUNSHINE_PORT_END = 47990;
+const SUNSHINE_PORT_END = 48100; // Expanded range to support multiple instances
 
 // Alle Middleware-Funktionen benötigen Authentifizierung
 router.use(authenticateToken);
@@ -65,7 +65,14 @@ async function findAvailablePort(startPort, endPort, type = 'vnc') {
           const container = docker.getContainer(row.container_id);
           const info = await container.inspect();
           // Container existiert noch - Port ist belegt
-          activePorts.push(row[column]);
+          if (type === 'sunshine') {
+            // For Sunshine, reserve a block of ports (base port + 16 ports for safety)
+            for (let i = 0; i < 16; i++) {
+              activePorts.push(row[column] + i);
+            }
+          } else {
+            activePorts.push(row[column]);
+          }
         } catch (error) {
           // Container existiert nicht mehr - Port kann freigegeben werden
           console.log(`Container ${row.container_id} existiert nicht mehr, Port ${row[column]} wird freigegeben`);
@@ -79,11 +86,30 @@ async function findAvailablePort(startPort, endPort, type = 'vnc') {
       console.log(`Port-Suche ${type}: Bereich ${startPort}-${endPort}, aktive Ports:`, activePorts);
       
       // Ersten freien Port finden
-      for (let port = startPort; port <= endPort; port++) {
-        if (!activePorts.includes(port)) {
-          console.log(`Freier ${type}-Port gefunden: ${port}`);
-          resolve(port);
-          return;
+      if (type === 'sunshine') {
+        // For Sunshine, find a base port where the next 16 ports are also free
+        for (let port = startPort; port <= endPort - 16; port += 16) {
+          let blockFree = true;
+          for (let i = 0; i < 16; i++) {
+            if (activePorts.includes(port + i)) {
+              blockFree = false;
+              break;
+            }
+          }
+          if (blockFree) {
+            console.log(`Freier ${type}-Port-Block gefunden: ${port}-${port + 15}`);
+            resolve(port);
+            return;
+          }
+        }
+      } else {
+        // For VNC and Web ports, find single free port
+        for (let port = startPort; port <= endPort; port++) {
+          if (!activePorts.includes(port)) {
+            console.log(`Freier ${type}-Port gefunden: ${port}`);
+            resolve(port);
+            return;
+          }
         }
       }
       
@@ -321,6 +347,7 @@ router.post('/create', async (req, res) => {
       Env: [
         `VNC_PORT=${vncPort}`,
         `WEB_VNC_PORT=${webVncPort}`,
+        `SUNSHINE_BASE_PORT=${sunshinePort}`,
         `USER_ID=${userId}`,
         `DISPLAY=:1`,
         `VNC_PASSWORD=${vncPassword}`,
@@ -342,15 +369,33 @@ router.post('/create', async (req, res) => {
       ExposedPorts: {
         [`${vncPort}/tcp`]: {},
         [`${webVncPort}/tcp`]: {},
-        [`${sunshinePort}/tcp`]: {},
-        [`${sunshinePort + 1}/tcp`]: {} // Sunshine Web UI port
+        // Sunshine TCP ports
+        [`${sunshinePort}/tcp`]: {},     // 47984 - Main streaming port
+        [`${sunshinePort + 5}/tcp`]: {}, // 47989 - Control port
+        [`${sunshinePort + 6}/tcp`]: {}, // 47990 - Web UI port
+        [`${sunshinePort + 26}/tcp`]: {}, // 48010 - Additional port
+        // Sunshine UDP ports
+        [`${sunshinePort + 14}/udp`]: {}, // 47998 - Audio
+        [`${sunshinePort + 15}/udp`]: {}, // 47999 - Video
+        [`${sunshinePort + 16}/udp`]: {}, // 48000 - Control
+        [`${sunshinePort + 18}/udp`]: {}, // 48002 - Additional
+        [`${sunshinePort + 26}/udp`]: {}  // 48010 - Additional
       },
       HostConfig: {
         PortBindings: {
           [`${vncPort}/tcp`]: [{ HostPort: vncPort.toString() }],
           [`${webVncPort}/tcp`]: [{ HostPort: webVncPort.toString() }],
+          // Sunshine TCP ports
           [`${sunshinePort}/tcp`]: [{ HostPort: sunshinePort.toString() }],
-          [`${sunshinePort + 1}/tcp`]: [{ HostPort: (sunshinePort + 1).toString() }]
+          [`${sunshinePort + 5}/tcp`]: [{ HostPort: (sunshinePort + 5).toString() }],
+          [`${sunshinePort + 6}/tcp`]: [{ HostPort: (sunshinePort + 6).toString() }],
+          [`${sunshinePort + 26}/tcp`]: [{ HostPort: (sunshinePort + 26).toString() }],
+          // Sunshine UDP ports
+          [`${sunshinePort + 14}/udp`]: [{ HostPort: (sunshinePort + 14).toString() }],
+          [`${sunshinePort + 15}/udp`]: [{ HostPort: (sunshinePort + 15).toString() }],
+          [`${sunshinePort + 16}/udp`]: [{ HostPort: (sunshinePort + 16).toString() }],
+          [`${sunshinePort + 18}/udp`]: [{ HostPort: (sunshinePort + 18).toString() }],
+          [`${sunshinePort + 26}/udp`]: [{ HostPort: (sunshinePort + 26).toString() }]
         },
         Memory: 4 * 1024 * 1024 * 1024, // 4GB RAM Limit (erhöht für GPU-Workloads)
         CpuShares: 2048, // Erhöhter CPU-Anteil für Gaming
