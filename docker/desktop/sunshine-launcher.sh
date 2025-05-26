@@ -140,5 +140,40 @@ echo "📱 Connect with Moonlight client to: $(hostname -I | awk '{print $1}')"
 echo "   Use PIN from web UI for first-time setup"
 echo ""
 
+# Find and run Sunshine as user
+SUNSHINE_BIN=""
+if command -v sunshine >/dev/null 2>&1; then
+    SUNSHINE_BIN="sunshine"
+elif [ -f "/usr/bin/sunshine" ]; then
+    SUNSHINE_BIN="/usr/bin/sunshine"
+elif [ -f "/usr/local/bin/sunshine" ]; then
+    SUNSHINE_BIN="/usr/local/bin/sunshine"
+else
+    # Try to find sunshine binary
+    SUNSHINE_BIN=$(find /usr -name "sunshine" -type f -executable 2>/dev/null | head -1)
+fi
+
+if [ -z "$SUNSHINE_BIN" ]; then
+    echo "❌ Sunshine binary not found!"
+    echo ""
+    echo "🔧 Troubleshooting Options:"
+    echo "   1. Run manual installation script:"
+    echo "      sudo /usr/local/bin/install-sunshine-manual"
+    echo ""
+    echo "   2. Try package manager installation:"
+    echo "      sudo apt update && sudo apt install sunshine"
+    echo ""
+    echo "   3. Download manually from:"
+    echo "      https://github.com/LizardByte/Sunshine/releases"
+    echo ""
+    echo "   4. Check if Sunshine is installed elsewhere:"
+    echo "      find /usr -name 'sunshine' -type f 2>/dev/null"
+    echo ""
+    echo "💡 After installation, try running this script again."
+    exit 1
+fi
+
+echo "🚀 Using Sunshine binary: $SUNSHINE_BIN"
+
 # Run Sunshine as user
-exec sudo -u user sunshine "$SUNSHINE_CONFIG_FILE" 
+exec sudo -u user "$SUNSHINE_BIN" "$SUNSHINE_CONFIG_FILE" 
