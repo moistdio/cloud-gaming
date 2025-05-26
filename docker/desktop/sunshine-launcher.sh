@@ -52,21 +52,31 @@ origin_web_ui_allowed = pc
 output_name = :1.0
 capture = x11
 
-# Video Configuration - Start with software encoding for compatibility
+# Video Configuration - Force software encoding to avoid segfaults
 encoder = software
-adapter_name = auto
+sw_preset = ultrafast
+sw_tune = zerolatency
 
-# Video quality settings (conservative for stability)
-bitrate = 15000
+# Disable hardware encoders that cause segfaults in containers
+nvenc = disabled
+vaapi = disabled
+qsv = disabled
+
+# Video quality settings (optimized for software encoding)
+bitrate = 10000
 fps = 30
-min_threads = 1
+min_threads = 2
+crf = 23
 
 # Audio Configuration
 audio_sink = pulse
 
-# Input Configuration
+# Input Configuration - Disable virtual input devices that cause warnings
 key_repeat_delay = 500
 key_repeat_frequency = 24
+gamepad = disabled
+mouse = disabled
+keyboard = disabled
 
 # Security
 username = user
@@ -74,17 +84,21 @@ password = sunshine
 
 # Container-specific settings for X11 compatibility
 x11_display = :1
-force_software_encoding = false
+force_software_encoding = true
 
 # Logging for troubleshooting
-min_log_level = debug
+min_log_level = info
 log_path = /home/user/.config/sunshine/sunshine.log
 
 # Disable features that may cause issues in containers
 upnp = disabled
+lan_encryption = disabled
 
-# Try hardware encoding as fallback (will auto-detect)
-# If software fails, Sunshine will try: nvenc, vaapi, then back to software
+# Performance optimizations for software encoding
+threads = 0
+slices = 1
+qmin = 16
+qmax = 51
 EOF
 
     chown user:user "$SUNSHINE_CONFIG_FILE"
