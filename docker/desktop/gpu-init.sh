@@ -486,7 +486,8 @@ EOF
         fi
         
         # Setze Vulkan-Umgebungsvariablen für bessere Kompatibilität
-        echo "# NVIDIA Vulkan Environment Variables" >> /etc/environment
+        # Based on GitHub issue #393003 solution
+        echo "# NVIDIA Vulkan Environment Variables (GitHub issue #393003 fix)" >> /etc/environment
         if [ -w "/etc/vulkan/icd.d" ]; then
             echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         else
@@ -495,23 +496,33 @@ EOF
         echo "VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d" >> /etc/environment
         echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         
+        # Ensure vulkan-loader is properly configured
+        echo "VK_LOADER_DEBUG=error" >> /etc/environment
+        echo "VK_LOADER_LAYERS_ENABLE=" >> /etc/environment
+        
         # Additional Steam-compatible Vulkan environment variables
         echo "VK_INSTANCE_LAYERS=" >> /etc/environment
         echo "VK_DEVICE_LAYERS=" >> /etc/environment
         
         # Create Steam-specific Vulkan configuration
+        # Based on GitHub issue #393003 solution
         mkdir -p /home/user/.config/steam
         cat > /home/user/.config/steam/vulkan_env.sh << 'EOF'
 #!/bin/bash
-# Steam Vulkan Environment Configuration
+# Steam Vulkan Environment Configuration (GitHub issue #393003 fix)
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_INSTANCE_LAYERS=""
 export VK_DEVICE_LAYERS=""
+export VK_LOADER_DEBUG=error
+export VK_LOADER_LAYERS_ENABLE=""
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export LIBGL_ALWAYS_INDIRECT=0
 export LIBGL_ALWAYS_SOFTWARE=0
+
+# Ensure graphics drivers are available in Steam environment
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:$LD_LIBRARY_PATH"
 EOF
         chmod +x /home/user/.config/steam/vulkan_env.sh
         chown -R user:user /home/user/.config/steam

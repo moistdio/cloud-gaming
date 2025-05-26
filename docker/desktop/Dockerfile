@@ -221,32 +221,41 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Vulkan Support installieren
+# Vulkan Support installieren (enhanced based on GitHub issue #393003)
 RUN apt-get update && apt-get install -y \
     vulkan-tools \
     vulkan-validationlayers \
+    vulkan-extension-layer \
     libvulkan1 \
     mesa-vulkan-drivers \
+    vulkan-loader \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # NVIDIA Vulkan ICD Verzeichnis erstellen (wird von gpu-init.sh konfiguriert)
 RUN mkdir -p /usr/share/vulkan/icd.d
 
-# Set system-wide Vulkan environment variables
-RUN echo '# Vulkan Environment Variables for Steam and Games' >> /etc/environment && \
+# Set system-wide Vulkan environment variables (GitHub issue #393003 fix)
+RUN echo '# Vulkan Environment Variables for Steam and Games (GitHub issue #393003 fix)' >> /etc/environment && \
     echo 'VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /etc/environment && \
     echo 'VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d' >> /etc/environment && \
     echo 'VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /etc/environment && \
     echo 'VK_INSTANCE_LAYERS=' >> /etc/environment && \
-    echo 'VK_DEVICE_LAYERS=' >> /etc/environment
+    echo 'VK_DEVICE_LAYERS=' >> /etc/environment && \
+    echo 'VK_LOADER_DEBUG=error' >> /etc/environment && \
+    echo 'VK_LOADER_LAYERS_ENABLE=' >> /etc/environment
 
 # Zusätzliche Vulkan-Bibliotheken installieren (verfügbare Pakete)
+# Based on GitHub issue #393003 solution
 RUN apt-get update && apt-get install -y \
     # Mesa Vulkan Fallback
     mesa-vulkan-drivers \
     vulkan-tools \
     vulkan-validationlayers \
+    vulkan-extension-layer \
+    vulkan-loader \
+    # Additional packages for Steam Vulkan compatibility
+    libvulkan-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -281,12 +290,14 @@ RUN mkdir -p /home/user/.steam && \
     echo 'export STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.steam' >> /home/user/.bashrc && \
     echo 'export STEAM_RUNTIME=1' >> /home/user/.bashrc && \
     echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /home/user/.bashrc && \
-    # Vulkan environment variables for Steam
+    # Vulkan environment variables for Steam (GitHub issue #393003 fix)
     echo 'export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /home/user/.bashrc && \
     echo 'export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d' >> /home/user/.bashrc && \
     echo 'export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /home/user/.bashrc && \
     echo 'export VK_INSTANCE_LAYERS=""' >> /home/user/.bashrc && \
-    echo 'export VK_DEVICE_LAYERS=""' >> /home/user/.bashrc
+    echo 'export VK_DEVICE_LAYERS=""' >> /home/user/.bashrc && \
+    echo 'export VK_LOADER_DEBUG=error' >> /home/user/.bashrc && \
+    echo 'export VK_LOADER_LAYERS_ENABLE=""' >> /home/user/.bashrc
 
 # Desktop-Konfiguration für XFCE4
 RUN mkdir -p /home/user/.config/xfce4/xfconf/xfce-perchannel-xml && \

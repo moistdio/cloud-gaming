@@ -1,19 +1,31 @@
 #!/bin/bash
 
-# Quick fix for Vulkan in current container
+# Quick fix for Vulkan in current container (GitHub issue #393003 fix)
 CONTAINER_ID="40dfff2a4f72"
 
-echo "🔧 Applying Vulkan fix to container $CONTAINER_ID..."
+echo "🔧 Applying Vulkan fix to container $CONTAINER_ID (GitHub issue #393003 solution)..."
+
+# Install missing Vulkan packages first
+echo "📦 Installing missing Vulkan packages..."
+docker exec -it $CONTAINER_ID bash -c "
+apt-get update && apt-get install -y \
+    vulkan-extension-layer \
+    vulkan-loader \
+    libvulkan-dev \
+    2>/dev/null || echo 'Some packages may not be available'
+"
 
 # Set environment variables in the container
 docker exec -it $CONTAINER_ID bash -c "
-# Add Vulkan environment variables to /etc/environment
-echo '# Vulkan Environment Variables for Steam and Games' >> /etc/environment
+# Add Vulkan environment variables to /etc/environment (GitHub issue #393003 fix)
+echo '# Vulkan Environment Variables for Steam and Games (GitHub issue #393003 fix)' >> /etc/environment
 echo 'VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /etc/environment
 echo 'VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d' >> /etc/environment
 echo 'VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /etc/environment
 echo 'VK_INSTANCE_LAYERS=' >> /etc/environment
 echo 'VK_DEVICE_LAYERS=' >> /etc/environment
+echo 'VK_LOADER_DEBUG=error' >> /etc/environment
+echo 'VK_LOADER_LAYERS_ENABLE=' >> /etc/environment
 
 # Add to user's bashrc
 echo 'export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /home/user/.bashrc
@@ -21,19 +33,27 @@ echo 'export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d' >> /home/user/.ba
 echo 'export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /home/user/.bashrc
 echo 'export VK_INSTANCE_LAYERS=' >> /home/user/.bashrc
 echo 'export VK_DEVICE_LAYERS=' >> /home/user/.bashrc
+echo 'export VK_LOADER_DEBUG=error' >> /home/user/.bashrc
+echo 'export VK_LOADER_LAYERS_ENABLE=' >> /home/user/.bashrc
 
 # Create Steam Vulkan wrapper
 mkdir -p /home/user/.config/steam
 cat > /home/user/.config/steam/vulkan_env.sh << 'EOF'
 #!/bin/bash
+# Steam Vulkan Environment Configuration (GitHub issue #393003 fix)
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_INSTANCE_LAYERS=
 export VK_DEVICE_LAYERS=
+export VK_LOADER_DEBUG=error
+export VK_LOADER_LAYERS_ENABLE=
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export LIBGL_ALWAYS_INDIRECT=0
 export LIBGL_ALWAYS_SOFTWARE=0
+
+# Ensure graphics drivers are available in Steam environment
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:\$LD_LIBRARY_PATH"
 EOF
 chmod +x /home/user/.config/steam/vulkan_env.sh
 chown -R user:user /home/user/.config/steam
