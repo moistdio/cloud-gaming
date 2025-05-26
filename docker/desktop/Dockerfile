@@ -431,7 +431,7 @@ RUN echo '#!/bin/bash' > /usr/local/bin/steam-vulkan && \
     echo '    source /home/user/.config/steam/vulkan_env.sh' >> /usr/local/bin/steam-vulkan && \
     echo 'else' >> /usr/local/bin/steam-vulkan && \
     echo '    # Fallback environment variables' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json' >> /usr/local/bin/steam-vulkan && \
+    echo '    export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json:/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json' >> /usr/local/bin/steam-vulkan && \
     echo '    export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d' >> /usr/local/bin/steam-vulkan && \
     echo '    export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /usr/local/bin/steam-vulkan && \
     echo '    export VK_INSTANCE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \

@@ -425,6 +425,22 @@ EOF
             done
         fi
         
+        # Also search for any NVIDIA libraries that might contain Vulkan support
+        log_info "Searching for all NVIDIA libraries..."
+        FOUND_NVIDIA_LIBS=$(find /usr/lib -name "*nvidia*" -name "*.so*" -type f 2>/dev/null | grep -E "(vulkan|icd)" || true)
+        if [ ! -z "$FOUND_NVIDIA_LIBS" ]; then
+            log_info "Found NVIDIA libraries with potential Vulkan support:"
+            echo "$FOUND_NVIDIA_LIBS" | while read lib; do
+                echo "  • $lib"
+            done
+        fi
+        
+        # Check what NVIDIA packages are actually installed
+        log_info "Checking installed NVIDIA packages..."
+        dpkg -l | grep nvidia | grep -E "(driver|vulkan)" | while read line; do
+            echo "  • $line"
+        done
+        
         NVIDIA_VULKAN_LIB=""
         NVIDIA_ICD_JSON=""
         
@@ -472,8 +488,25 @@ EOF
             # Enhanced fallback configuration for Steam compatibility (GitHub issue #393003)
             log_info "Creating enhanced NVIDIA Vulkan ICD configurations..."
             
+            # Check if any NVIDIA GLX library exists as a fallback
+            NVIDIA_GLX_LIB=""
+            GLX_PATHS=(
+                "/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0"
+                "/usr/lib/x86_64-linux-gnu/nvidia/libGL.so.1"
+                "/usr/lib/x86_64-linux-gnu/libnvidia-gl-535/libGL.so.1"
+                "/usr/lib/x86_64-linux-gnu/libnvidia-gl-550/libGL.so.1"
+            )
+            
+            for glx_path in "${GLX_PATHS[@]}"; do
+                if [ -f "$glx_path" ]; then
+                    NVIDIA_GLX_LIB="$glx_path"
+                    log_info "Found NVIDIA GLX library: $glx_path"
+                    break
+                fi
+            done
+            
             # Primary configuration with correct NVIDIA Vulkan driver (CRITICAL FIX)
-            # The key issue was using libGLX_nvidia.so.0 instead of the actual Vulkan driver
+            # Try multiple library names for maximum compatibility
             cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
 {
     "file_format_version": "1.0.0",
@@ -495,10 +528,29 @@ EOF
 }
 EOF
             
+            # If we have GLX but no Vulkan library, create a GLX-based fallback
+            # This is sometimes needed for older NVIDIA drivers
+            if [ ! -z "$NVIDIA_GLX_LIB" ]; then
+                GLX_LIB_NAME=$(basename "$NVIDIA_GLX_LIB")
+                cat > /usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json << EOF
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "$GLX_LIB_NAME",
+        "api_version": "1.3.0"
+    }
+}
+EOF
+                log_info "Created GLX-based fallback ICD configuration using: $GLX_LIB_NAME"
+            fi
+            
             # Copy to /etc/vulkan/icd.d if writable
             if [ -w "/etc/vulkan/icd.d" ]; then
                 cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
                 cp /usr/share/vulkan/icd.d/nvidia_vulkan_icd.json /etc/vulkan/icd.d/nvidia_vulkan_icd.json 2>/dev/null || true
+                if [ -f "/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json" ]; then
+                    cp /usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json /etc/vulkan/icd.d/nvidia_glx_fallback_icd.json 2>/dev/null || true
+                fi
             fi
             
             log_success "Enhanced NVIDIA Vulkan ICD configurations created for Steam compatibility"
@@ -507,11 +559,20 @@ EOF
         # Setze Vulkan-Umgebungsvariablen für bessere Kompatibilität
         # Enhanced based on GitHub issue #393003 comprehensive solution
         echo "# Enhanced NVIDIA Vulkan Environment Variables (GitHub issue #393003 comprehensive fix)" >> /etc/environment
-        if [ -w "/etc/vulkan/icd.d" ]; then
-            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json:/etc/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
-        else
-            echo "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json" >> /etc/environment
+        
+        # Build comprehensive ICD filenames list
+        ICD_FILES="/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json"
+        if [ -f "/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json" ]; then
+            ICD_FILES="$ICD_FILES:/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json"
         fi
+        if [ -w "/etc/vulkan/icd.d" ]; then
+            ICD_FILES="$ICD_FILES:/etc/vulkan/icd.d/nvidia_icd.json"
+            if [ -f "/etc/vulkan/icd.d/nvidia_glx_fallback_icd.json" ]; then
+                ICD_FILES="$ICD_FILES:/etc/vulkan/icd.d/nvidia_glx_fallback_icd.json"
+            fi
+        fi
+        
+        echo "VK_ICD_FILENAMES=$ICD_FILES" >> /etc/environment
         echo "VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d" >> /etc/environment
         echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json" >> /etc/environment
         
@@ -531,8 +592,8 @@ EOF
 #!/bin/bash
 # Enhanced Steam Vulkan Environment Configuration (GitHub issue #393003 comprehensive fix)
 
-# Core Vulkan environment variables with multiple ICD paths
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json
+# Core Vulkan environment variables with multiple ICD paths (including fallback)
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json:/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json
 export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_INSTANCE_LAYERS=""
