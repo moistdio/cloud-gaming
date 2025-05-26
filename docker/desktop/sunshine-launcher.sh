@@ -41,25 +41,28 @@ if [ ! -f "$SUNSHINE_CONFIG_FILE" ]; then
     
     cat > "$SUNSHINE_CONFIG_FILE" << EOF
 # Sunshine Configuration for Cloud Gaming Container
-# Optimized for NVIDIA GPU hardware acceleration
+# Optimized for containerized environment with display compatibility
 
 # Network Configuration
 address_family = both
 port = 47989
 origin_web_ui_allowed = pc
 
-# Video Configuration
-# Use NVIDIA hardware encoding for best performance
-encoder = nvenc
-adapter_name = /dev/dri/renderD128
+# Display Configuration (CRITICAL for container environments)
+output_name = :1.0
+capture = x11
 
-# Video quality settings
-bitrate = 20000
-fps = 60
-min_threads = 2
+# Video Configuration - Start with software encoding for compatibility
+encoder = software
+adapter_name = auto
+
+# Video quality settings (conservative for stability)
+bitrate = 15000
+fps = 30
+min_threads = 1
 
 # Audio Configuration
-audio_sink = auto
+audio_sink = pulse
 
 # Input Configuration
 key_repeat_delay = 500
@@ -69,17 +72,19 @@ key_repeat_frequency = 24
 username = user
 password = sunshine
 
-# Advanced GPU settings
-nvenc_preset = p1
-nvenc_rc = cbr_hq
-nvenc_coder = h264
+# Container-specific settings for X11 compatibility
+x11_display = :1
+force_software_encoding = false
 
-# Display settings
-output_name = :1
-
-# Logging
-min_log_level = info
+# Logging for troubleshooting
+min_log_level = debug
 log_path = /home/user/.config/sunshine/sunshine.log
+
+# Disable features that may cause issues in containers
+upnp = disabled
+
+# Try hardware encoding as fallback (will auto-detect)
+# If software fails, Sunshine will try: nvenc, vaapi, then back to software
 EOF
 
     chown user:user "$SUNSHINE_CONFIG_FILE"
@@ -124,6 +129,50 @@ if [ $timeout -eq 0 ]; then
     echo "❌ X11 display not ready after 30 seconds"
     exit 1
 fi
+
+# Additional display and encoder checks for Sunshine
+echo "🔍 Performing Sunshine compatibility checks..."
+
+# Check X11 display details
+echo "📺 X11 Display Information:"
+DISPLAY_INFO=$(xdpyinfo -display :1 2>/dev/null | grep -E "dimensions|resolution" | head -2)
+if [ -n "$DISPLAY_INFO" ]; then
+    echo "$DISPLAY_INFO" | sed 's/^/   /'
+else
+    echo "   ⚠️  Could not get display information"
+fi
+
+# Check for available encoders
+echo "🎥 Checking available video encoders..."
+if command -v ffmpeg >/dev/null 2>&1; then
+    echo "   Software encoding: ✅ Available (ffmpeg)"
+    
+    # Check for hardware encoders
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "nvenc"; then
+        echo "   NVIDIA NVENC: ✅ Available"
+    else
+        echo "   NVIDIA NVENC: ❌ Not available"
+    fi
+    
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "vaapi"; then
+        echo "   VAAPI: ✅ Available"
+    else
+        echo "   VAAPI: ❌ Not available"
+    fi
+else
+    echo "   ⚠️  ffmpeg not found - software encoding may not work"
+fi
+
+# Check DRI devices for hardware acceleration
+echo "🖥️  Checking DRI devices:"
+if [ -d "/dev/dri" ]; then
+    ls -la /dev/dri/ | sed 's/^/   /'
+else
+    echo "   ⚠️  /dev/dri not found - hardware acceleration unavailable"
+fi
+
+# Set additional environment variables for Sunshine
+export SUNSHINE_CONFIG_FILE="$SUNSHINE_CONFIG_FILE"
 
 # Show network information
 echo "🌐 Network Information:"
@@ -175,5 +224,27 @@ fi
 
 echo "🚀 Using Sunshine binary: $SUNSHINE_BIN"
 
-# Run Sunshine as user
-exec sudo -u user "$SUNSHINE_BIN" "$SUNSHINE_CONFIG_FILE" 
+# Final pre-flight checks
+echo "🔧 Final configuration checks..."
+echo "   Display: $DISPLAY"
+echo "   Config: $SUNSHINE_CONFIG_FILE"
+echo "   User: $(whoami) -> user"
+
+# Ensure config file is owned by user
+chown user:user "$SUNSHINE_CONFIG_FILE" 2>/dev/null || true
+
+echo ""
+echo "🌞 Starting Sunshine Game Streaming Server..."
+echo "   If you see 'Unable to find display or encoder' errors:"
+echo "   1. Check that X11 is running: xdpyinfo -display :1"
+echo "   2. Try software encoding first (already configured)"
+echo "   3. Check logs at: /home/user/.config/sunshine/sunshine.log"
+echo "   4. Web UI will be at: http://$(hostname -I | awk '{print $1}'):47990"
+echo ""
+
+# Run Sunshine as user with proper environment
+exec sudo -u user \
+    DISPLAY=:1 \
+    XDG_RUNTIME_DIR=/tmp/runtime-user \
+    PULSE_SERVER="unix:/tmp/pulse-native" \
+    "$SUNSHINE_BIN" "$SUNSHINE_CONFIG_FILE" 

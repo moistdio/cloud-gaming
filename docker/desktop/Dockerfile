@@ -390,6 +390,12 @@ RUN apt-get update && apt-get install -y \
     libxcb1-dev \
     libxcb-shm0-dev \
     libxcb-xfixes0-dev \
+    # Video encoding dependencies
+    ffmpeg \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
     # Additional dependencies for hardware encoding
     libva-dev \
     libvdpau-dev \
@@ -480,7 +486,17 @@ RUN mkdir -p /home/user/Desktop && \
     echo 'Exec=/usr/local/bin/sunshine-launcher' >> /home/user/Desktop/Sunshine.desktop && \
     echo 'Icon=applications-games' >> /home/user/Desktop/Sunshine.desktop && \
     echo 'Terminal=false' >> /home/user/Desktop/Sunshine.desktop && \
-    echo 'Categories=Game;Network;' >> /home/user/Desktop/Sunshine.desktop
+    echo 'Categories=Game;Network;' >> /home/user/Desktop/Sunshine.desktop && \
+    # Sunshine Test Desktop-Shortcut
+    echo '[Desktop Entry]' > /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Version=1.0' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Type=Application' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Name=Test Sunshine' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Comment=Test Sunshine compatibility and diagnose issues' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Exec=xfce4-terminal --hold -e test-sunshine' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Icon=applications-debugging' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Terminal=false' >> /home/user/Desktop/Test-Sunshine.desktop && \
+    echo 'Categories=System;Utility;' >> /home/user/Desktop/Test-Sunshine.desktop
 
 # Berechtigungen setzen
 RUN chown -R user:user /home/user/.config && \
@@ -510,6 +526,10 @@ RUN chmod +x /usr/local/bin/sunshine-launcher
 # Manual Sunshine Installation Script kopieren
 COPY install-sunshine-manual.sh /usr/local/bin/install-sunshine-manual
 RUN chmod +x /usr/local/bin/install-sunshine-manual
+
+# Sunshine Test Script kopieren
+COPY test-sunshine.sh /usr/local/bin/test-sunshine
+RUN chmod +x /usr/local/bin/test-sunshine
 
 # Create enhanced Steam launcher with Vulkan support (GitHub issue #393003 fix)
 RUN echo '#!/bin/bash' > /usr/local/bin/steam-vulkan && \
