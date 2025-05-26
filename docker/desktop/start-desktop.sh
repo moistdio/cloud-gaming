@@ -184,6 +184,9 @@ fi
 mkdir -p /home/user/.vnc
 chown -R user:user /home/user/.vnc
 
+# Cleanup any existing password change files from previous runs
+rm -f /tmp/new_vnc_password
+
 # VNC-Passwort setzen
 set_initial_vnc_password "$VNC_PASSWORD"
 
@@ -336,8 +339,8 @@ EOF
 # WebSocket-Proxy starten (verbindet noVNC mit VNC-Server)
 ./utils/novnc_proxy --vnc localhost:$VNC_PORT --listen $WEB_VNC_PORT &
 
-# Passwort-Monitor im Hintergrund starten
-monitor_password_changes &
+# Passwort-Monitor im Hintergrund starten (with delay to avoid startup conflicts)
+(sleep 10 && monitor_password_changes) &
 
 # Health-Check-Funktion
 health_check() {
