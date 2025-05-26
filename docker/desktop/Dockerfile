@@ -225,10 +225,8 @@ RUN apt-get update && \
 RUN apt-get update && apt-get install -y \
     vulkan-tools \
     vulkan-validationlayers \
-    vulkan-extension-layer \
     libvulkan1 \
     mesa-vulkan-drivers \
-    vulkan-loader \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -252,8 +250,6 @@ RUN apt-get update && apt-get install -y \
     mesa-vulkan-drivers \
     vulkan-tools \
     vulkan-validationlayers \
-    vulkan-extension-layer \
-    vulkan-loader \
     # Additional packages for Steam Vulkan compatibility
     libvulkan-dev \
     && apt-get clean \

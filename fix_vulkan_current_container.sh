@@ -9,9 +9,8 @@ echo "🔧 Applying Vulkan fix to container $CONTAINER_ID (GitHub issue #393003 
 echo "📦 Installing missing Vulkan packages..."
 docker exec -it $CONTAINER_ID bash -c "
 apt-get update && apt-get install -y \
-    vulkan-extension-layer \
-    vulkan-loader \
     libvulkan-dev \
+    vulkan-validationlayers \
     2>/dev/null || echo 'Some packages may not be available'
 "
 
