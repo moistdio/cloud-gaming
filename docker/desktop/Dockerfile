@@ -366,6 +366,48 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Sunshine Game Streaming Server installieren
+RUN apt-get update && apt-get install -y \
+    # Sunshine dependencies
+    cmake \
+    build-essential \
+    libssl-dev \
+    libavdevice-dev \
+    libboost-thread-dev \
+    libboost-filesystem-dev \
+    libboost-log-dev \
+    libpulse-dev \
+    libopus-dev \
+    libxtst-dev \
+    libevdev-dev \
+    libudev-dev \
+    libdrm-dev \
+    libcap-dev \
+    libwayland-dev \
+    libx11-dev \
+    libxrandr-dev \
+    libxfixes-dev \
+    libxcb1-dev \
+    libxcb-shm0-dev \
+    libxcb-xfixes0-dev \
+    # Additional dependencies for hardware encoding
+    libva-dev \
+    libvdpau-dev \
+    libnvidia-encode1 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install Sunshine from GitHub releases
+RUN cd /tmp && \
+    SUNSHINE_VERSION=$(curl -s https://api.github.com/repos/LizardByte/Sunshine/releases/latest | grep -Po '"tag_name": "\K.*?(?=")') && \
+    wget -q "https://github.com/LizardByte/Sunshine/releases/download/${SUNSHINE_VERSION}/sunshine-ubuntu-22.04-amd64.deb" && \
+    dpkg -i sunshine-ubuntu-22.04-amd64.deb || apt-get install -f -y && \
+    rm sunshine-ubuntu-22.04-amd64.deb
+
+# Create Sunshine configuration directory
+RUN mkdir -p /home/user/.config/sunshine && \
+    chown -R user:user /home/user/.config/sunshine
+
 # X11-Konfiguration für GPU-Beschleunigung
 RUN mkdir -p /etc/X11/xorg.conf.d && \
     echo 'Section "Device"\n\
@@ -399,7 +441,17 @@ RUN mkdir -p /home/user/Desktop && \
     echo 'Exec=xfce4-terminal --hold -e test-vulkan.sh' >> /home/user/Desktop/Vulkan-Test.desktop && \
     echo 'Icon=applications-system' >> /home/user/Desktop/Vulkan-Test.desktop && \
     echo 'Terminal=false' >> /home/user/Desktop/Vulkan-Test.desktop && \
-    echo 'Categories=System;HardwareSettings;' >> /home/user/Desktop/Vulkan-Test.desktop
+    echo 'Categories=System;HardwareSettings;' >> /home/user/Desktop/Vulkan-Test.desktop && \
+    # Sunshine Desktop-Shortcut
+    echo '[Desktop Entry]' > /home/user/Desktop/Sunshine.desktop && \
+    echo 'Version=1.0' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Type=Application' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Name=Sunshine Game Streaming' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Comment=Start Sunshine game streaming server' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Exec=/usr/local/bin/sunshine-launcher' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Icon=applications-games' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Terminal=false' >> /home/user/Desktop/Sunshine.desktop && \
+    echo 'Categories=Game;Network;' >> /home/user/Desktop/Sunshine.desktop
 
 # Berechtigungen setzen
 RUN chown -R user:user /home/user/.config && \
@@ -421,6 +473,10 @@ RUN chmod +x /usr/local/bin/steam-wrapper.sh
 # Steam-Initialisierungs-Script kopieren
 COPY steam-init.sh /usr/local/bin/steam-init.sh
 RUN chmod +x /usr/local/bin/steam-init.sh
+
+# Sunshine-Launcher-Script kopieren
+COPY sunshine-launcher.sh /usr/local/bin/sunshine-launcher
+RUN chmod +x /usr/local/bin/sunshine-launcher
 
 # Create enhanced Steam launcher with Vulkan support (GitHub issue #393003 fix)
 RUN echo '#!/bin/bash' > /usr/local/bin/steam-vulkan && \
@@ -463,8 +519,8 @@ RUN ln -sf /usr/local/bin/steam-wrapper.sh /usr/local/bin/steam
 # VNC-Passwort als Umgebungsvariable setzen (zur Laufzeit)
 ENV VNC_PASSWORD=${VNC_PASSWORD}
 
-# Port-Bereiche freigeben (VNC: 11000-11430, Web: 12000-12430)
-EXPOSE 11000-11430 12000-12430
+# Port-Bereiche freigeben (VNC: 11000-11430, Web: 12000-12430, Sunshine: 47984-47990)
+EXPOSE 11000-11430 12000-12430 47984-47990
 
 # Arbeitsverzeichnis setzen
 WORKDIR /home/user

@@ -177,22 +177,47 @@ function checkAndAddVncPassword(resolve, reject) {
     }
     
     const hasVncPassword = columns.some(col => col.name === 'vnc_password');
+    const hasSunshinePort = columns.some(col => col.name === 'sunshine_port');
+    
+    let migrations = [];
     
     if (!hasVncPassword) {
-      console.log('Füge vnc_password Spalte zur containers Tabelle hinzu...');
-      db.run("ALTER TABLE containers ADD COLUMN vnc_password TEXT DEFAULT 'cloudgaming'", (err) => {
+      migrations.push({
+        name: 'vnc_password',
+        sql: "ALTER TABLE containers ADD COLUMN vnc_password TEXT DEFAULT 'cloudgaming'"
+      });
+    }
+    
+    if (!hasSunshinePort) {
+      migrations.push({
+        name: 'sunshine_port',
+        sql: "ALTER TABLE containers ADD COLUMN sunshine_port INTEGER"
+      });
+    }
+    
+    if (migrations.length === 0) {
+      console.log('Alle Container-Spalten existieren bereits');
+      resolve();
+      return;
+    }
+    
+    // Führe Migrationen sequenziell aus
+    let completed = 0;
+    migrations.forEach(migration => {
+      console.log(`Füge ${migration.name} Spalte zur containers Tabelle hinzu...`);
+      db.run(migration.sql, (err) => {
         if (err) {
-          console.error('Fehler beim Hinzufügen der vnc_password Spalte:', err);
+          console.error(`Fehler beim Hinzufügen der ${migration.name} Spalte:`, err);
           reject(err);
           return;
         }
-        console.log('vnc_password Spalte erfolgreich hinzugefügt');
-        resolve();
+        console.log(`${migration.name} Spalte erfolgreich hinzugefügt`);
+        completed++;
+        if (completed === migrations.length) {
+          resolve();
+        }
       });
-    } else {
-      console.log('vnc_password Spalte existiert bereits');
-      resolve();
-    }
+    });
   });
 }
 

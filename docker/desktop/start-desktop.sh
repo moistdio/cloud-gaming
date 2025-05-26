@@ -381,6 +381,19 @@ if health_check; then
     echo ""
     echo "💡 To update password: echo 'newpassword' > /tmp/new_vnc_password"
     echo ""
+    
+    # Auto-start Sunshine if enabled
+    if [ "${AUTO_START_SUNSHINE:-false}" = "true" ]; then
+        echo "🌞 Auto-starting Sunshine Game Streaming Server..."
+        /usr/local/bin/sunshine-launcher &
+        echo "✅ Sunshine started in background"
+        echo "📱 Sunshine Web UI: http://localhost:47990"
+        echo "📱 Connect with Moonlight client to container IP"
+        echo ""
+    else
+        echo "🌞 Sunshine available - use desktop shortcut or run: /usr/local/bin/sunshine-launcher"
+        echo ""
+    fi
 else
     echo "❌ Failed to start services"
     exit 1

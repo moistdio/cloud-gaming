@@ -8,6 +8,7 @@ services:
     ports:
       - "3002:3001"
       # Ports 11000-11430 und 12000-12430 werden dynamisch von Desktop-Containern verwendet
+      # Ports 47984-47990 werden von Sunshine verwendet
       # Diese dürfen NICHT hier reserviert werden!
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

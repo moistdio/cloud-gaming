@@ -12,6 +12,8 @@ const VNC_PORT_START = 11000;
 const VNC_PORT_END = 11430;
 const WEB_VNC_PORT_START = 12000;
 const WEB_VNC_PORT_END = 12430;
+const SUNSHINE_PORT_START = 47984;
+const SUNSHINE_PORT_END = 47990;
 
 // Alle Middleware-Funktionen benötigen Authentifizierung
 router.use(authenticateToken);
@@ -33,7 +35,16 @@ async function findAvailablePort(startPort, endPort, type = 'vnc') {
   
   return new Promise(async (resolve, reject) => {
     try {
-      const column = type === 'vnc' ? 'vnc_port' : 'web_port';
+      let column;
+      if (type === 'vnc') {
+        column = 'vnc_port';
+      } else if (type === 'web') {
+        column = 'web_port';
+      } else if (type === 'sunshine') {
+        column = 'sunshine_port';
+      } else {
+        column = 'vnc_port'; // fallback
+      }
       
       // Alle verwendeten Ports in dem Bereich abrufen (nur von aktiven Containern)
       const rows = await new Promise((res, rej) => {
@@ -281,13 +292,14 @@ router.post('/create', async (req, res) => {
     }
 
     // Verfügbare Ports finden (mit Retry-Logik)
-    let vncPort, webVncPort;
+    let vncPort, webVncPort, sunshinePort;
     let retries = 3;
     
     while (retries > 0) {
       try {
         vncPort = await findAvailablePort(VNC_PORT_START, VNC_PORT_END, 'vnc');
         webVncPort = await findAvailablePort(WEB_VNC_PORT_START, WEB_VNC_PORT_END, 'web');
+        sunshinePort = await findAvailablePort(SUNSHINE_PORT_START, SUNSHINE_PORT_END, 'sunshine');
         break;
       } catch (error) {
         retries--;
@@ -300,7 +312,7 @@ router.post('/create', async (req, res) => {
     // Sicheres VNC-Passwort generieren
     const vncPassword = generateSecurePassword(12);
 
-    console.log(`Erstelle Container für Benutzer ${req.user.username} (ID: ${userId}): VNC=${vncPort}, Web=${webVncPort}, Passwort generiert`);
+    console.log(`Erstelle Container für Benutzer ${req.user.username} (ID: ${userId}): VNC=${vncPort}, Web=${webVncPort}, Sunshine=${sunshinePort}, Passwort generiert`);
 
     // Docker-Container erstellen mit GPU-Support
     const containerConfig = {
@@ -329,12 +341,16 @@ router.post('/create', async (req, res) => {
       ],
       ExposedPorts: {
         [`${vncPort}/tcp`]: {},
-        [`${webVncPort}/tcp`]: {}
+        [`${webVncPort}/tcp`]: {},
+        [`${sunshinePort}/tcp`]: {},
+        [`${sunshinePort + 1}/tcp`]: {} // Sunshine Web UI port
       },
       HostConfig: {
         PortBindings: {
           [`${vncPort}/tcp`]: [{ HostPort: vncPort.toString() }],
-          [`${webVncPort}/tcp`]: [{ HostPort: webVncPort.toString() }]
+          [`${webVncPort}/tcp`]: [{ HostPort: webVncPort.toString() }],
+          [`${sunshinePort}/tcp`]: [{ HostPort: sunshinePort.toString() }],
+          [`${sunshinePort + 1}/tcp`]: [{ HostPort: (sunshinePort + 1).toString() }]
         },
         Memory: 4 * 1024 * 1024 * 1024, // 4GB RAM Limit (erhöht für GPU-Workloads)
         CpuShares: 2048, // Erhöhter CPU-Anteil für Gaming
@@ -396,8 +412,8 @@ router.post('/create', async (req, res) => {
     // Container in Datenbank speichern (mit Passwort)
     const containerId = await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO containers (user_id, container_id, container_name, vnc_port, web_port, vnc_password, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [userId, containerInfo.Id, containerName.trim(), vncPort, webVncPort, vncPassword, 'created'],
+        'INSERT INTO containers (user_id, container_id, container_name, vnc_port, web_port, sunshine_port, vnc_password, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [userId, containerInfo.Id, containerName.trim(), vncPort, webVncPort, sunshinePort, vncPassword, 'created'],
         function(err) {
           if (err) {
             console.error('Fehler beim Speichern in Datenbank:', err);
