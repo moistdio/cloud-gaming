@@ -393,7 +393,6 @@ RUN apt-get update && apt-get install -y \
     # Additional dependencies for hardware encoding
     libva-dev \
     libvdpau-dev \
-    libnvidia-encode1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
