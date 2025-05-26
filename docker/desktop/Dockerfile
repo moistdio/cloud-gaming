@@ -426,27 +426,22 @@ RUN chmod +x /usr/local/bin/steam-init.sh
 RUN echo '#!/bin/bash' > /usr/local/bin/steam-vulkan && \
     echo '# Enhanced Steam launcher with Vulkan support (GitHub issue #393003 comprehensive fix)' >> /usr/local/bin/steam-vulkan && \
     echo '' >> /usr/local/bin/steam-vulkan && \
-    echo '# Source Vulkan environment if available' >> /usr/local/bin/steam-vulkan && \
-    echo 'if [ -f "/home/user/.config/steam/vulkan_env.sh" ]; then' >> /usr/local/bin/steam-vulkan && \
-    echo '    source /home/user/.config/steam/vulkan_env.sh' >> /usr/local/bin/steam-vulkan && \
-    echo 'else' >> /usr/local/bin/steam-vulkan && \
-    echo '    # Fallback environment variables' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_vulkan_icd.json:/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_INSTANCE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_DEVICE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_LOADER_DEBUG=error' >> /usr/local/bin/steam-vulkan && \
-    echo '    export VK_LOADER_LAYERS_ENABLE=""' >> /usr/local/bin/steam-vulkan && \
-    echo '    export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /usr/local/bin/steam-vulkan && \
-    echo '    export LIBGL_ALWAYS_INDIRECT=0' >> /usr/local/bin/steam-vulkan && \
-    echo '    export LIBGL_ALWAYS_SOFTWARE=0' >> /usr/local/bin/steam-vulkan && \
-    echo '    export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"' >> /usr/local/bin/steam-vulkan && \
-    echo '    export DISPLAY=:1' >> /usr/local/bin/steam-vulkan && \
-    echo '    export XDG_RUNTIME_DIR=/tmp/runtime-user' >> /usr/local/bin/steam-vulkan && \
-    echo '    mkdir -p $XDG_RUNTIME_DIR 2>/dev/null || true' >> /usr/local/bin/steam-vulkan && \
-    echo '    chmod 700 $XDG_RUNTIME_DIR 2>/dev/null || true' >> /usr/local/bin/steam-vulkan && \
-    echo 'fi' >> /usr/local/bin/steam-vulkan && \
+    echo '# CRITICAL: Always set correct Vulkan environment variables' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_INSTANCE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_DEVICE_LAYERS=""' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_LOADER_DEBUG=error' >> /usr/local/bin/steam-vulkan && \
+    echo 'export VK_LOADER_LAYERS_ENABLE=""' >> /usr/local/bin/steam-vulkan && \
+    echo 'export __GLX_VENDOR_LIBRARY_NAME=nvidia' >> /usr/local/bin/steam-vulkan && \
+    echo 'export LIBGL_ALWAYS_INDIRECT=0' >> /usr/local/bin/steam-vulkan && \
+    echo 'export LIBGL_ALWAYS_SOFTWARE=0' >> /usr/local/bin/steam-vulkan && \
+    echo 'export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"' >> /usr/local/bin/steam-vulkan && \
+    echo 'export DISPLAY=:1' >> /usr/local/bin/steam-vulkan && \
+    echo 'export XDG_RUNTIME_DIR=/tmp/runtime-user' >> /usr/local/bin/steam-vulkan && \
+    echo 'mkdir -p $XDG_RUNTIME_DIR 2>/dev/null || true' >> /usr/local/bin/steam-vulkan && \
+    echo 'chmod 700 $XDG_RUNTIME_DIR 2>/dev/null || true' >> /usr/local/bin/steam-vulkan && \
     echo '' >> /usr/local/bin/steam-vulkan && \
     echo '# Additional Steam flags for container compatibility' >> /usr/local/bin/steam-vulkan && \
     echo 'STEAM_FLAGS="--no-cef-sandbox --disable-gpu-sandbox --in-process-gpu --disable-dev-shm-usage --disable-software-rasterizer --enable-features=VaapiVideoDecoder --use-gl=desktop"' >> /usr/local/bin/steam-vulkan && \

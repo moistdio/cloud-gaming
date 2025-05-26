@@ -457,20 +457,43 @@ EOF
         done
         
         # Erstelle NVIDIA Vulkan ICD Konfiguration (GitHub issue #393003 comprehensive fix)
+        # CRITICAL FIX: Always overwrite the ICD configuration to use the correct library
+        log_info "Configuring NVIDIA Vulkan ICD (overwriting existing configuration)..."
+        
+        # Check if the existing ICD points to the wrong library
+        EXISTING_ICD_LIB=""
+        if [ -f "/usr/share/vulkan/icd.d/nvidia_icd.json" ]; then
+            EXISTING_ICD_LIB=$(grep -o '"library_path": "[^"]*"' /usr/share/vulkan/icd.d/nvidia_icd.json | cut -d'"' -f4 2>/dev/null || echo "")
+            log_info "Existing ICD library: $EXISTING_ICD_LIB"
+        fi
+        
+        # Force correct configuration using GLX library (which works for Vulkan)
+        log_info "Creating correct NVIDIA Vulkan ICD configuration..."
+        cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "libGLX_nvidia.so.0",
+        "api_version": "1.3.0"
+    }
+}
+EOF
+        
+        # Try to copy to /etc/vulkan/icd.d if writable
+        if [ -w "/etc/vulkan/icd.d" ]; then
+            cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+        fi
+        
+        log_success "NVIDIA Vulkan ICD configured with libGLX_nvidia.so.0 (CRITICAL FIX APPLIED)"
+        
+        # Backup: Also check if we found specific libraries and create alternatives
         if [ ! -z "$NVIDIA_ICD_JSON" ]; then
-            # Verwende existierende ICD-Konfiguration
-            if [ "$NVIDIA_ICD_JSON" != "/usr/share/vulkan/icd.d/nvidia_icd.json" ]; then
-                cp "$NVIDIA_ICD_JSON" /usr/share/vulkan/icd.d/nvidia_icd.json
-            fi
-            # Try to copy to /etc/vulkan/icd.d if writable
-            if [ "$NVIDIA_ICD_JSON" != "/etc/vulkan/icd.d/nvidia_icd.json" ] && [ -w "/etc/vulkan/icd.d" ]; then
-                cp "$NVIDIA_ICD_JSON" /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
-            fi
-            log_success "NVIDIA Vulkan ICD configured from existing file: $NVIDIA_ICD_JSON"
-        elif [ ! -z "$NVIDIA_VULKAN_LIB" ]; then
-            # Erstelle ICD-Konfiguration basierend auf gefundener Bibliothek
+            log_info "Found existing ICD file: $NVIDIA_ICD_JSON"
+        fi
+        if [ ! -z "$NVIDIA_VULKAN_LIB" ]; then
+            # Create alternative ICD configuration
             LIB_NAME=$(basename "$NVIDIA_VULKAN_LIB")
-            cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
+            cat > /usr/share/vulkan/icd.d/nvidia_vulkan_alt_icd.json << EOF
 {
     "file_format_version": "1.0.0",
     "ICD": {
@@ -479,11 +502,7 @@ EOF
     }
 }
 EOF
-            # Try to copy to /etc/vulkan/icd.d if writable
-            if [ -w "/etc/vulkan/icd.d" ]; then
-                cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
-            fi
-            log_success "NVIDIA Vulkan ICD configured with library: $LIB_NAME"
+            log_info "Created alternative ICD with library: $LIB_NAME"
         else
             # Enhanced fallback configuration for Steam compatibility (GitHub issue #393003)
             log_info "Creating enhanced NVIDIA Vulkan ICD configurations..."

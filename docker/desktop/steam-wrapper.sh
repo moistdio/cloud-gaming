@@ -16,6 +16,15 @@ export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export __GL_SHADER_DISK_CACHE=1
 export __GL_THREADED_OPTIMIZATIONS=1
 
+# CRITICAL: Vulkan environment variables (GitHub issue #393003 fix)
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:/usr/share/vulkan/implicit_layer.d
+export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
+export VK_INSTANCE_LAYERS=""
+export VK_DEVICE_LAYERS=""
+export VK_LOADER_DEBUG=error
+export VK_LOADER_LAYERS_ENABLE=""
+
 # Audio environment
 export PULSE_SERVER="unix:/tmp/pulse-native"
 
