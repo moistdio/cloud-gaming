@@ -524,17 +524,9 @@ EOF
                 fi
             done
             
-            # Primary configuration with correct NVIDIA Vulkan driver (CRITICAL FIX)
-            # Try multiple library names for maximum compatibility
-            cat > /usr/share/vulkan/icd.d/nvidia_icd.json << EOF
-{
-    "file_format_version": "1.0.0",
-    "ICD": {
-        "library_path": "libvulkan_nvidia.so.1",
-        "api_version": "1.3.0"
-    }
-}
-EOF
+            # DO NOT overwrite the correct configuration that was already set above
+            # The correct libGLX_nvidia.so.0 configuration is already in place
+            log_info "Keeping existing correct NVIDIA ICD configuration with libGLX_nvidia.so.0"
             
             # Alternative configuration for different NVIDIA driver versions
             cat > /usr/share/vulkan/icd.d/nvidia_vulkan_icd.json << EOF
@@ -563,10 +555,9 @@ EOF
                 log_info "Created GLX-based fallback ICD configuration using: $GLX_LIB_NAME"
             fi
             
-            # Copy to /etc/vulkan/icd.d if writable
+            # Copy only the GLX fallback to /etc/vulkan/icd.d if writable
+            # The main nvidia_icd.json is already correctly configured above
             if [ -w "/etc/vulkan/icd.d" ]; then
-                cp /usr/share/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
-                cp /usr/share/vulkan/icd.d/nvidia_vulkan_icd.json /etc/vulkan/icd.d/nvidia_vulkan_icd.json 2>/dev/null || true
                 if [ -f "/usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json" ]; then
                     cp /usr/share/vulkan/icd.d/nvidia_glx_fallback_icd.json /etc/vulkan/icd.d/nvidia_glx_fallback_icd.json 2>/dev/null || true
                 fi
