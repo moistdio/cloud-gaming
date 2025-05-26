@@ -129,7 +129,7 @@ update_vnc_password() {
         echo "🔄 Restarting x11vnc server with new password..."
         pkill -f "x11vnc.*$VNC_PORT" || true
         sleep 2
-        x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $new_password -shared -forever -noxdamage -noxfixes -noxcomposite -bg
+        x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $new_password -shared -forever -noxdamage -noxfixes -noxcomposite -ncache 10 -ncache_cr -bg
         
         # Restart noVNC proxy to ensure clean connection
         echo "🔄 Restarting noVNC proxy..."
@@ -323,7 +323,7 @@ fi
 
 # Start x11vnc to provide VNC access to the Xvfb display
 echo "🚀 Starting x11vnc on port $VNC_PORT..."
-x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -bg
+x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -ncache 10 -ncache_cr -bg
 
 # noVNC Web-Interface starten
 echo "🌐 Starting noVNC Web Interface on port $WEB_VNC_PORT..."
@@ -339,10 +339,7 @@ EOF
 # WebSocket-Proxy starten (verbindet noVNC mit VNC-Server)
 ./utils/novnc_proxy --vnc localhost:$VNC_PORT --listen $WEB_VNC_PORT &
 
-# Passwort-Monitor im Hintergrund starten (with delay to avoid startup conflicts)
-(sleep 10 && monitor_password_changes) &
-
-# Health-Check-Funktion
+# Health-Check-Funktion (defined early for use by password monitor)
 health_check() {
     # Prüfe VNC-Server
     if ! netstat -ln | grep -q ":$VNC_PORT "; then
@@ -359,6 +356,9 @@ health_check() {
     echo "✅ All services running"
     return 0
 }
+
+# Passwort-Monitor im Hintergrund starten (with delay to avoid startup conflicts)
+(sleep 10 && monitor_password_changes) &
 
 # Warten bis Services bereit sind
 echo "⏳ Waiting for services to start..."
@@ -441,7 +441,7 @@ while true; do
             sudo -u user DISPLAY=$DISPLAY /home/user/.vnc/xstartup &
             
             # Start x11vnc with current password
-            x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -bg
+            x11vnc -display $DISPLAY -rfbport $VNC_PORT -passwd $VNC_PASSWORD -shared -forever -noxdamage -noxfixes -noxcomposite -ncache 10 -ncache_cr -bg
         fi
         
         # noVNC neu starten falls nötig
