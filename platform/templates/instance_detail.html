@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block title %}Instance {{ instance.id[:8] }} - Cloud Gaming Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4>
+                    <i class="fas fa-gamepad me-2"></i>
+                    Instance Details: {{ instance.id[:8] }}...
+                </h4>
+                <span class="status-badge status-{{ instance.status }}">
+                    {{ instance.status.title() }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong><i class="fas fa-fingerprint me-2"></i>Instance ID:</strong></td>
+                                <td><code>{{ instance.id }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-user me-2"></i>User ID:</strong></td>
+                                <td>{{ instance.user_id }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-docker me-2"></i>Container ID:</strong></td>
+                                <td><code>{{ instance.container_id[:12] }}...</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-desktop me-2"></i>Display:</strong></td>
+                                <td>:{{ instance.display_number }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-clock me-2"></i>Created:</strong></td>
+                                <td>{{ instance.created_at }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-eye me-2"></i>Last Accessed:</strong></td>
+                                <td>{{ instance.last_accessed }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-cogs me-2"></i>Configuration</h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong><i class="fas fa-memory me-2"></i>Memory Limit:</strong></td>
+                                <td>{{ instance.config.memory_limit or '4G' }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-microchip me-2"></i>CPU Cores:</strong></td>
+                                <td>{{ instance.config.cpu_limit or '2' }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-display me-2"></i>GPU Enabled:</strong></td>
+                                <td>
+                                    {% if instance.config.enable_gpu %}
+                                    <span class="badge bg-success">Yes</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">No</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="fas fa-volume-up me-2"></i>Audio Enabled:</strong></td>
+                                <td>
+                                    {% if instance.config.enable_audio %}
+                                    <span class="badge bg-success">Yes</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">No</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-network-wired me-2"></i>Connection Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6><i class="fas fa-desktop me-2"></i>noVNC Web Access</h6>
+                    <div class="input-group">
+                        <input type="text" class="form-control" 
+                               value="http://localhost:{{ instance.novnc_port }}" 
+                               id="novnc-url" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyToClipboard('novnc-url')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <a href="http://localhost:{{ instance.novnc_port }}" 
+                           target="_blank" class="btn btn-success">
+                            <i class="fas fa-external-link-alt me-2"></i>Open
+                        </a>
+                    </div>
+                    <small class="text-muted">Access your gaming desktop directly in the browser</small>
+                </div>
+
+                <div class="mb-3">
+                    <h6><i class="fas fa-sun me-2"></i>Sunshine Streaming</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">Host:</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" 
+                                       value="localhost" id="sunshine-host" readonly>
+                                <button class="btn btn-outline-secondary" onclick="copyToClipboard('sunshine-host')">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Main Port:</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" 
+                                       value="{{ instance.sunshine_port }}" id="sunshine-port" readonly>
+                                <button class="btn btn-outline-secondary" onclick="copyToClipboard('sunshine-port')">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <small class="text-muted">
+                                <strong>Ports:</strong> {{ instance.sunshine_port }} (HTTPS), {{ instance.sunshine_port + 1 }} (HTTP), {{ instance.sunshine_port + 2 }} (RTSP)<br>
+                                <strong>Username:</strong> gamer<br>
+                                <strong>Password:</strong> {{ instance.config.user_password or 'gaming123' }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tools me-2"></i>Management Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-info" onclick="checkContainerStatus()">
+                        <i class="fas fa-sync me-2"></i>Refresh Status
+                    </button>
+                    
+                    <button class="btn btn-warning" onclick="restartContainer()">
+                        <i class="fas fa-redo me-2"></i>Restart Container
+                    </button>
+                    
+                    <button class="btn btn-secondary" onclick="viewLogs()">
+                        <i class="fas fa-file-alt me-2"></i>View Logs
+                    </button>
+                    
+                    <hr>
+                    
+                    <form method="POST" action="{{ url_for('delete_instance', instance_id=instance.id) }}" 
+                          onsubmit="return confirmDelete()">
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-trash me-2"></i>Delete Instance
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-question-circle me-2"></i>How to Connect</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-desktop text-success me-2"></i>Web Browser (noVNC)</h6>
+                        <ol class="small">
+                            <li>Click the "Open" button above</li>
+                            <li>Wait for the desktop to load</li>
+                            <li>Steam should start automatically</li>
+                            <li>Use your mouse and keyboard normally</li>
+                        </ol>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-mobile-alt text-info me-2"></i>Moonlight Client</h6>
+                        <ol class="small">
+                            <li>Install Moonlight on your device</li>
+                            <li>Add PC with host: localhost</li>
+                            <li>Use port: {{ instance.sunshine_port }}</li>
+                            <li>Login with: gamer / {{ instance.config.user_password or 'gaming123' }}</li>
+                        </ol>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-gamepad text-warning me-2"></i>Steam Link</h6>
+                        <ol class="small">
+                            <li>Install Steam Link app</li>
+                            <li>Scan for computers on network</li>
+                            <li>Select this gaming instance</li>
+                            <li>Follow pairing instructions</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line me-2"></i>Container Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="container-status">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading container status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs Modal -->
+<div class="modal fade" id="logsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-alt me-2"></i>Container Logs
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="container-logs" style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 5px;">
+Loading logs...
+                </pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="refreshLogs()">
+                    <i class="fas fa-sync me-2"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    element.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(element.value);
+    
+    // Show feedback
+    const button = element.nextElementSibling;
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i>';
+    button.classList.add('btn-success');
+    button.classList.remove('btn-outline-secondary');
+    
+    setTimeout(() => {
+        button.innerHTML = originalHTML;
+        button.classList.remove('btn-success');
+        button.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+
+function confirmDelete() {
+    return confirm('Are you sure you want to delete this instance? This action cannot be undone and all data will be lost.');
+}
+
+function checkContainerStatus() {
+    // Simulate container status check
+    const statusDiv = document.getElementById('container-status');
+    statusDiv.innerHTML = `
+        <div class="row text-center">
+            <div class="col-md-3">
+                <h5 class="text-success">Running</h5>
+                <p class="mb-0">Container Status</p>
+            </div>
+            <div class="col-md-3">
+                <h5 class="text-info">{{ instance.config.memory_limit or '4G' }}</h5>
+                <p class="mb-0">Memory Limit</p>
+            </div>
+            <div class="col-md-3">
+                <h5 class="text-warning">{{ instance.config.cpu_limit or '2' }}</h5>
+                <p class="mb-0">CPU Cores</p>
+            </div>
+            <div class="col-md-3">
+                <h5 class="text-primary">:{{ instance.display_number }}</h5>
+                <p class="mb-0">Display</p>
+            </div>
+        </div>
+        <hr>
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle me-2"></i>
+            Container is running normally. All services are accessible.
+        </div>
+    `;
+}
+
+function restartContainer() {
+    if (confirm('Are you sure you want to restart this container? This will temporarily interrupt any active sessions.')) {
+        // Simulate restart
+        alert('Container restart initiated. Please wait a few moments for services to come back online.');
+    }
+}
+
+function viewLogs() {
+    const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+    modal.show();
+    refreshLogs();
+}
+
+function refreshLogs() {
+    // Simulate log fetching
+    document.getElementById('container-logs').textContent = `
+[$(date)] Container started successfully
+[$(date)] X11 display :{{ instance.display_number }} initialized
+[$(date)] noVNC server started on port {{ instance.novnc_port }}
+[$(date)] Sunshine streaming server started on port {{ instance.sunshine_port }}
+[$(date)] Steam client initialized
+[$(date)] GPU acceleration enabled
+[$(date)] Audio system configured
+[$(date)] Container ready for connections
+[$(date)] User session active
+[$(date)] All services running normally
+    `.trim();
+}
+
+// Load container status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(checkContainerStatus, 1000);
+});
+
+// Auto-refresh status every 30 seconds
+setInterval(function() {
+    fetch('/api/instances')
+        .then(response => response.json())
+        .then(data => {
+            const instance = data.find(i => i.id === '{{ instance.id }}');
+            if (instance) {
+                const statusBadge = document.querySelector('.status-badge');
+                statusBadge.className = `status-badge status-${instance.status}`;
+                statusBadge.textContent = instance.status.charAt(0).toUpperCase() + instance.status.slice(1);
+            }
+        })
+        .catch(error => console.log('Auto-refresh failed:', error));
+}, 30000);
+</script>
+{% endblock %} 

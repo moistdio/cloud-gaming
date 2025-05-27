@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Cloud Gaming Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-gamepad text-primary me-3"></i>
+                    Cloud Gaming Platform
+                </h1>
+                <p class="lead">Deploy and manage your own cloud gaming instances with Steam, noVNC, and Sunshine streaming</p>
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-rocket fa-3x text-primary mb-3"></i>
+                                <h5>Quick Deploy</h5>
+                                <p>Launch a new gaming instance in seconds</p>
+                                <a href="{{ url_for('create_instance') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Create Instance
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-server fa-3x text-success mb-3"></i>
+                                <h5>Manage Instances</h5>
+                                <p>View and control your gaming instances</p>
+                                <a href="{{ url_for('instances') }}" class="btn btn-success">
+                                    <i class="fas fa-list me-2"></i>View Instances
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                                <h5>Monitor</h5>
+                                <p>Track resource usage and performance</p>
+                                <button class="btn btn-info" onclick="loadStats()">
+                                    <i class="fas fa-sync me-2"></i>Load Stats
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle me-2"></i>Platform Features</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Dynamic port allocation starting from 12000
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Automatic display management (X11 displays)
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        noVNC web-based access
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Sunshine streaming support
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        GPU acceleration support
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Persistent storage per instance
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Resource limits and monitoring
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-cogs me-2"></i>System Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="system-stats">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading system information...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-question-circle me-2"></i>Getting Started</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-play-circle text-primary me-2"></i>Step 1: Create Instance</h6>
+                        <p>Click "Create Instance" to deploy a new gaming container with your preferred configuration.</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-desktop text-success me-2"></i>Step 2: Access via noVNC</h6>
+                        <p>Use the provided noVNC URL to access your gaming desktop directly in your browser.</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-gamepad text-info me-2"></i>Step 3: Start Gaming</h6>
+                        <p>Steam will auto-start, or use Sunshine for high-performance streaming to your devices.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadStats() {
+    fetch('/api/instances')
+        .then(response => response.json())
+        .then(data => {
+            const statsDiv = document.getElementById('system-stats');
+            const runningInstances = data.filter(instance => instance.status === 'running').length;
+            const totalInstances = data.length;
+            
+            statsDiv.innerHTML = `
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h3 class="text-primary">${totalInstances}</h3>
+                        <p class="mb-0">Total Instances</p>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="text-success">${runningInstances}</h3>
+                        <p class="mb-0">Running Instances</p>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5 class="text-info">Port Range</h5>
+                        <p class="mb-0">12000 - ${12000 + (50 * 2)}</p>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="text-warning">Display Range</h5>
+                        <p class="mb-0">:55 - :${55 + 50}</p>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            document.getElementById('system-stats').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Unable to load system stats
+                </div>
+            `;
+        });
+}
+
+// Load stats on page load
+document.addEventListener('DOMContentLoaded', loadStats);
+</script>
+{% endblock %} 

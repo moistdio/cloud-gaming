@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Create Instance - Cloud Gaming Platform{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-plus-circle me-2"></i>Create New Gaming Instance</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="user_id" class="form-label">
+                                    <i class="fas fa-user me-2"></i>User ID
+                                </label>
+                                <input type="text" class="form-control" id="user_id" name="user_id" 
+                                       value="default" required>
+                                <div class="form-text">Unique identifier for this instance owner</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="user_password" class="form-label">
+                                    <i class="fas fa-lock me-2"></i>User Password
+                                </label>
+                                <input type="password" class="form-control" id="user_password" name="user_password" 
+                                       value="gaming123" required>
+                                <div class="form-text">Password for the gaming user account</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5><i class="fas fa-cogs me-2"></i>Resource Configuration</h5>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="memory_limit" class="form-label">
+                                    <i class="fas fa-memory me-2"></i>Memory Limit
+                                </label>
+                                <select class="form-select" id="memory_limit" name="memory_limit">
+                                    <option value="2G">2 GB</option>
+                                    <option value="4G" selected>4 GB</option>
+                                    <option value="6G">6 GB</option>
+                                    <option value="8G">8 GB</option>
+                                    <option value="12G">12 GB</option>
+                                    <option value="16G">16 GB</option>
+                                </select>
+                                <div class="form-text">Maximum memory allocation for the instance</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="cpu_limit" class="form-label">
+                                    <i class="fas fa-microchip me-2"></i>CPU Cores
+                                </label>
+                                <select class="form-select" id="cpu_limit" name="cpu_limit">
+                                    <option value="1">1 Core</option>
+                                    <option value="2" selected>2 Cores</option>
+                                    <option value="4">4 Cores</option>
+                                    <option value="6">6 Cores</option>
+                                    <option value="8">8 Cores</option>
+                                </select>
+                                <div class="form-text">Number of CPU cores to allocate</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5><i class="fas fa-sliders-h me-2"></i>Feature Configuration</h5>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="enable_gpu" name="enable_gpu" checked>
+                                <label class="form-check-label" for="enable_gpu">
+                                    <i class="fas fa-display me-2"></i>Enable GPU Acceleration
+                                </label>
+                                <div class="form-text">Enable hardware GPU acceleration for better performance</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="enable_audio" name="enable_audio" checked>
+                                <label class="form-check-label" for="enable_audio">
+                                    <i class="fas fa-volume-up me-2"></i>Enable Audio
+                                </label>
+                                <div class="form-text">Enable audio support for noVNC sessions</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>Instance Details</h6>
+                        <ul class="mb-0">
+                            <li>Ports will be automatically allocated starting from 12000</li>
+                            <li>Display number will be automatically assigned (starting from :55)</li>
+                            <li>Steam will be pre-installed and configured</li>
+                            <li>noVNC and Sunshine streaming will be available</li>
+                            <li>Persistent storage will be created for user data and games</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('instances') }}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-arrow-left me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-rocket me-2"></i>Create Instance
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-question-circle me-2"></i>Configuration Guide</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-memory text-primary me-2"></i>Memory Recommendations</h6>
+                        <ul class="small">
+                            <li><strong>2-4 GB:</strong> Light gaming, indie games</li>
+                            <li><strong>6-8 GB:</strong> Modern games, good performance</li>
+                            <li><strong>12-16 GB:</strong> AAA games, maximum performance</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-microchip text-success me-2"></i>CPU Recommendations</h6>
+                        <ul class="small">
+                            <li><strong>1-2 Cores:</strong> Basic gaming, older titles</li>
+                            <li><strong>4 Cores:</strong> Most modern games</li>
+                            <li><strong>6-8 Cores:</strong> CPU-intensive games, streaming</li>
+                        </ul>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-display text-info me-2"></i>GPU Acceleration</h6>
+                        <p class="small">Enables hardware acceleration for better gaming performance. Requires compatible GPU drivers on the host system.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-volume-up text-warning me-2"></i>Audio Support</h6>
+                        <p class="small">Enables audio streaming through noVNC. Essential for games with audio or voice chat.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Form validation and user feedback
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    form.addEventListener('submit', function(e) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Instance...';
+        submitBtn.disabled = true;
+    });
+    
+    // Password strength indicator
+    const passwordInput = document.getElementById('user_password');
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        const strength = getPasswordStrength(password);
+        
+        // Remove existing feedback
+        const existingFeedback = this.parentNode.querySelector('.password-strength');
+        if (existingFeedback) {
+            existingFeedback.remove();
+        }
+        
+        // Add new feedback
+        const feedback = document.createElement('div');
+        feedback.className = `form-text password-strength text-${strength.color}`;
+        feedback.innerHTML = `<i class="fas fa-${strength.icon} me-1"></i>${strength.text}`;
+        this.parentNode.appendChild(feedback);
+    });
+});
+
+function getPasswordStrength(password) {
+    if (password.length < 6) {
+        return { color: 'danger', icon: 'times-circle', text: 'Password too short' };
+    } else if (password.length < 8) {
+        return { color: 'warning', icon: 'exclamation-circle', text: 'Weak password' };
+    } else if (password.length >= 12) {
+        return { color: 'success', icon: 'check-circle', text: 'Strong password' };
+    } else {
+        return { color: 'info', icon: 'info-circle', text: 'Good password' };
+    }
+}
+</script>
+{% endblock %} 
