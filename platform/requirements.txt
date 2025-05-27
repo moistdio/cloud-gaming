@@ -1,9 +1,2 @@
 Flask==2.3.3
-docker==6.1.3
-sqlite3
-uuid
-logging
-threading
-datetime
-json
-os 
+docker==6.1.3 
