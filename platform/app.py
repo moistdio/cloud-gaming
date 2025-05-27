@@ -22,7 +22,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Docker client
-docker_client = docker.from_env()
+try:
+    docker_client = docker.from_env()
+    # Test connection
+    docker_client.ping()
+    logger.info("Docker client connected successfully")
+except Exception as e:
+    logger.error(f"Failed to connect to Docker: {e}")
+    # Try alternative connection methods
+    try:
+        docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+        docker_client.ping()
+        logger.info("Docker client connected via unix socket")
+    except Exception as e2:
+        logger.error(f"Failed to connect to Docker via unix socket: {e2}")
+        raise Exception("Cannot connect to Docker daemon")
 
 class InstanceManager:
     def __init__(self):

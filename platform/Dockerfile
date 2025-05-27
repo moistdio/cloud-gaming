@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
 # Install Docker CLI
 RUN curl -fsSL https://get.docker.com | sh
 
+# Add user to docker group for socket access
+RUN groupadd -f docker && usermod -aG docker root
+
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
