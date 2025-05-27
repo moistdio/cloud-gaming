@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  gaming-platform:
+    build: .
+    container_name: cloud-gaming-platform
+    restart: unless-stopped
+    ports:
+      - "15000:5000"
+    volumes:
+      # Mount Docker socket to manage containers
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      # Persistent database storage
+      - ./data:/app/data
+      # Platform configuration
+      - ./config:/app/config
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - BASE_PORT=12000
+      - MAX_INSTANCES=50
+      - DOCKER_IMAGE=josh5/steam-headless:latest
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    networks:
+      - gaming-network
+    depends_on:
+      - redis
+    privileged: true
+
+  redis:
+    image: redis:7-alpine
+    container_name: gaming-platform-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - gaming-network
+    command: redis-server --appendonly yes
+
+networks:
+  gaming-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  redis-data:
+    driver: local 
