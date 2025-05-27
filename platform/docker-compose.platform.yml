@@ -6,7 +6,7 @@ services:
     container_name: cloud-gaming-platform
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "15000:5000"
     volumes:
       # Mount Docker socket to manage containers
       - /var/run/docker.sock:/var/run/docker.sock
@@ -44,9 +44,9 @@ services:
     container_name: gaming-platform-traefik
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080"  # Traefik dashboard
+      - "15080:80"
+      - "15443:443"
+      - "15081:8080"  # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik:/etc/traefik
